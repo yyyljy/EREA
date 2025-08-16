@@ -60,15 +60,6 @@ const mockAssets: EERCAsset[] = [
     acquired: "2024-12-19",
     status: "Active"
   },
-  {
-    id: "2",
-    propertyTitle: "Hongdae Commercial Property",
-    location: "Hapjeong-dong, Mapo-gu, Seoul",
-    tokenId: "EREA-002",
-    value: 380000,
-    acquired: "2024-11-15",
-    status: "Pending Sale"
-  }
 ];
 
 export function EERCDashboard() {
