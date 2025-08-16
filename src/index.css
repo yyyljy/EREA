@@ -1,0 +1,176 @@
+@import url("https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;400;600;700&family=Merriweather:wght@400;700&family=Source+Code+Pro:wght@400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: #f8f9fa;
+  color: #212529;
+  font-family: "Source Sans Pro", "Helvetica Neue", "Arial", sans-serif;
+  line-height: 1.6;
+}
+
+/* Avalanche Style Components */
+.avax-card {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+}
+
+.avax-button-primary {
+  background-color: #e84142;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.2s ease-in-out;
+  font-size: 0.875rem;
+}
+
+.avax-button-primary:hover {
+  background-color: #dc3545;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px 0 rgb(0 0 0 / 0.12);
+}
+
+.avax-button-secondary {
+  background-color: #ffffff;
+  color: #e84142;
+  border: 2px solid #e84142;
+  border-radius: 4px;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.2s ease-in-out;
+  font-size: 0.875rem;
+}
+
+.avax-button-secondary:hover {
+  background-color: #e84142;
+  color: white;
+}
+
+.avax-button-outline {
+  background-color: transparent;
+  color: #e84142;
+  border: 2px solid #e84142;
+  border-radius: 4px;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.2s ease-in-out;
+  font-size: 0.875rem;
+}
+
+.avax-button-outline:hover {
+  background-color: #e84142;
+  color: white;
+}
+
+.avax-input {
+  border: 2px solid #dee2e6;
+  border-radius: 4px;
+  padding: 0.75rem;
+  background: white;
+  color: #212529;
+  transition: border-color 0.2s ease-in-out;
+  font-size: 1rem;
+}
+
+.avax-input:focus {
+  outline: none;
+  border-color: #e84142;
+  box-shadow: 0 0 0 3px rgb(232 65 66 / 0.1);
+}
+
+.avax-header {
+  background: linear-gradient(135deg, #212529 0%, #e84142 100%);
+  color: white;
+}
+
+.avax-seal {
+  width: 60px;
+  height: 60px;
+  background: radial-gradient(circle, #ffffff 0%, #dee2e6 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #e84142;
+  border: 3px solid #e84142;
+}
+
+/* Remove spinner arrows in Webkit browsers */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Remove spinner arrows in Firefox */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.scrollable-text {
+  overflow: auto;
+}
+
+/* Avalanche style Typography */
+.avax-heading {
+  font-family: "Merriweather", "Georgia", serif;
+  font-weight: 700;
+  color: #212529;
+}
+
+.avax-subheading {
+  font-family: "Source Sans Pro", "Helvetica Neue", sans-serif;
+  font-weight: 600;
+  color: #212529;
+}
+
+.avax-body {
+  font-family: "Source Sans Pro", "Helvetica Neue", sans-serif;
+  font-weight: 400;
+  color: #495057;
+  line-height: 1.7;
+}
+
+/* Status indicators */
+.status-active {
+  background-color: #28a745;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-pending {
+  background-color: #ffc107;
+  color: #212529;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-closed {
+  background-color: #6c757d;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
