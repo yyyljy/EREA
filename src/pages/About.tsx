@@ -51,7 +51,7 @@ export function About() {
               </div>
               <div className="flex justify-between">
                 <span className="avax-body">Average Processing Time:</span>
-                <span className="font-bold text-avax-secondary">&lt; 3 mins</span>
+                <span className="font-bold text-erea-secondary">&lt; 3 mins</span>
               </div>
             </div>
           </div>
@@ -115,7 +115,7 @@ export function About() {
                   for secure real estate transactions.
                 </p>
               </div>
-              <div className="border-l-4 border-avax-secondary pl-4">
+              <div className="border-l-4 border-erea-secondary pl-4">
                 <h4 className="font-semibold text-erea-text mb-1">Zero-Knowledge Proofs</h4>
                 <p className="avax-body text-sm">
                   Advanced cryptographic techniques ensuring bid privacy while 
@@ -178,7 +178,7 @@ export function About() {
           </div>
           
           <div className="text-center">
-            <div className="w-12 h-12 bg-avax-secondary text-white rounded-full flex items-center justify-center mx-auto mb-3 font-bold">
+            <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-3 font-bold">
               2
             </div>
             <h3 className="avax-subheading text-lg mb-2">Browse Properties</h3>
@@ -267,55 +267,6 @@ export function About() {
             </ul>
           </div>
         </div>
-      </div>
-
-      {/* Contact Information */}
-      <div className="avax-card p-8 bg-avax-light">
-        <h2 className="avax-subheading text-2xl mb-6">
-          Contact & Support
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div>
-            <h3 className="avax-subheading text-lg mb-3">General Inquiries</h3>
-            <div className="space-y-2 avax-body">
-              <p>📧 info@erea.org</p>
-              <p>📞 1-800-EREA-ORG</p>
-              <p>🕒 Mon-Fri: 8:00 AM - 6:00 PM EST</p>
-            </div>
-          </div>
-          
-          <div>
-            <h3 className="avax-subheading text-lg mb-3">Technical Support</h3>
-            <div className="space-y-2 avax-body">
-              <p>📧 support@erea.org</p>
-              <p>📞 1-800-TECH-EREA</p>
-              <p>🕒 24/7 Emergency Support</p>
-            </div>
-          </div>
-          
-          <div>
-            <h3 className="avax-subheading text-lg mb-3">Regulatory Affairs</h3>
-            <div className="space-y-2 avax-body">
-              <p>📧 compliance@erea.org</p>
-              <p>📞 1-800-COMPLIANCE</p>
-              <p>🕒 Mon-Fri: 9:00 AM - 5:00 PM EST</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Disclaimer */}
-      <div className="avax-card p-6 bg-yellow-50 border-l-4 border-avax-warning">
-        <h3 className="avax-subheading text-lg mb-2 flex items-center">
-          <span className="mr-2">⚠️</span>
-          Important Notice
-        </h3>
-        <p className="avax-body text-sm">
-          EREA is a platform for real estate auctions. 
-          All transactions are subject to federal regulations and oversight. Participation 
-          requires proper identification and compliance with applicable laws. Blockchain 
-          technology ensures transaction security.
-        </p>
       </div>
     </main>
   );

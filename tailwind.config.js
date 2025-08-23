@@ -6,7 +6,7 @@ export default {
       colors: {
         // Avalanche style color palette
         "erea-primary": "#e84142", // Avalanche red
-        "avax-secondary": "#ffffff", // White
+        "erea-secondary": "#ffffff", // White
         "avax-accent": "#e84142", // Red accent
         "avax-light": "#f8f9fa", // Clean background
         "avax-gray": "#6c757d", // Neutral gray

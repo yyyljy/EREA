@@ -176,7 +176,7 @@ export function EERCDashboard() {
                   <div className="text-erea-text-light font-semibold">Active Assets</div>
                 </div>
                 <div className="avax-card p-6 bg-avax-light text-center">
-                  <div className="text-3xl font-bold text-avax-secondary">5</div>
+                  <div className="text-3xl font-bold text-erea-secondary">5</div>
                   <div className="text-erea-text-light font-semibold">Total Transactions</div>
                 </div>
                 <div className="avax-card p-6 bg-avax-light text-center">
