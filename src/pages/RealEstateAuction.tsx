@@ -206,8 +206,8 @@ export function RealEstateAuction() {
           <div className="text-erea-text-light font-semibold">Active Listings</div>
         </div>
         <div className="avax-card p-6 text-center">
-          <div className="text-3xl font-bold text-avax-success">$2.1M</div>
-          <div className="text-erea-text-light font-semibold">Total Volume</div>
+          <div className="text-3xl font-bold text-avax-success">{mockProperties.filter(p => p.status === 'Active').length}</div>
+          <div className="text-erea-text-light font-semibold">Ending Soon</div>
         </div>
         <div className="avax-card p-6 text-center">
           <div className="text-3xl font-bold text-avax-black">156</div>
