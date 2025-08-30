@@ -10,6 +10,15 @@ const About = lazy(() =>
 const EERCDashboard = lazy(() =>
 	import("./pages/EERCDashboard").then((module) => ({ default: module.EERCDashboard })),
 );
+const AdminPage = lazy(() =>
+	import("./pages/AdminPage").then((module) => ({ default: module.AdminPage })),
+);
+const ResidentPage = lazy(() =>
+	import("./pages/ResidentPage").then((module) => ({ default: module.ResidentPage })),
+);
+const BidderPage = lazy(() =>
+	import("./pages/BidderPage").then((module) => ({ default: module.BidderPage })),
+);
 
 // Loading component
 const LoadingFallback = () => (
@@ -19,7 +28,7 @@ const LoadingFallback = () => (
 );
 
 export function App() {
-	const [selectedPage, setSelectedPage] = useState<"auction" | "about" | "eerc">("auction");
+	const [selectedPage, setSelectedPage] = useState<"auction" | "about" | "eerc" | "admin" | "resident" | "bidder">("auction");
 
 	return (
 		<div className="min-h-screen bg-avax-light">
@@ -53,20 +62,50 @@ export function App() {
 								</span>
 							</div>
 						</div>
-						<nav className="flex space-x-1">
+						<nav className="flex space-x-1 flex-wrap">
 							<button
 								onClick={() => setSelectedPage("auction")}
-								className={`px-6 py-3 rounded-md font-semibold transition-all duration-200 text-sm uppercase tracking-wide ${
+								className={`px-4 py-2 rounded-md font-semibold transition-all duration-200 text-xs uppercase tracking-wide ${
 									selectedPage === "auction"
 										? "bg-white text-erea-primary shadow-md"
 										: "text-white hover:bg-white/10 border border-white/30"
 								}`}
 							>
-								Real Estate Auction
+								Auction
+							</button>
+							<button
+								onClick={() => setSelectedPage("admin")}
+								className={`px-4 py-2 rounded-md font-semibold transition-all duration-200 text-xs uppercase tracking-wide ${
+									selectedPage === "admin"
+										? "bg-white text-erea-primary shadow-md"
+										: "text-white hover:bg-white/10 border border-white/30"
+								}`}
+							>
+								Admin
+							</button>
+							<button
+								onClick={() => setSelectedPage("resident")}
+								className={`px-4 py-2 rounded-md font-semibold transition-all duration-200 text-xs uppercase tracking-wide ${
+									selectedPage === "resident"
+										? "bg-white text-erea-primary shadow-md"
+										: "text-white hover:bg-white/10 border border-white/30"
+								}`}
+							>
+								Resident
+							</button>
+							<button
+								onClick={() => setSelectedPage("bidder")}
+								className={`px-4 py-2 rounded-md font-semibold transition-all duration-200 text-xs uppercase tracking-wide ${
+									selectedPage === "bidder"
+										? "bg-white text-erea-primary shadow-md"
+										: "text-white hover:bg-white/10 border border-white/30"
+								}`}
+							>
+								Bidder
 							</button>
 							<button
 								onClick={() => setSelectedPage("about")}
-								className={`px-6 py-3 rounded-md font-semibold transition-all duration-200 text-sm uppercase tracking-wide ${
+								className={`px-4 py-2 rounded-md font-semibold transition-all duration-200 text-xs uppercase tracking-wide ${
 									selectedPage === "about"
 										? "bg-white text-erea-primary shadow-md"
 										: "text-white hover:bg-white/10 border border-white/30"
@@ -76,7 +115,7 @@ export function App() {
 							</button>
 							<button
 								onClick={() => setSelectedPage("eerc")}
-								className={`px-6 py-3 rounded-md font-semibold transition-all duration-200 text-sm uppercase tracking-wide ${
+								className={`px-4 py-2 rounded-md font-semibold transition-all duration-200 text-xs uppercase tracking-wide ${
 									selectedPage === "eerc"
 										? "bg-white text-erea-primary shadow-md"
 										: "text-white hover:bg-white/10 border border-white/30"
@@ -97,6 +136,9 @@ export function App() {
 						<span className="mx-2 text-erea-text-light">/</span>
 						<span className="text-erea-text font-semibold capitalize">
 							{selectedPage === "auction" ? "Real Estate Auction" : 
+							 selectedPage === "admin" ? "Admin Dashboard" :
+							 selectedPage === "resident" ? "Resident Portal" :
+							 selectedPage === "bidder" ? "Bidder Portal" :
 							 selectedPage === "about" ? "About" : "EERC Dashboard"}
 						</span>
 					</nav>
@@ -109,6 +151,12 @@ export function App() {
 					<Suspense fallback={<LoadingFallback />}>
 						{selectedPage === "auction" ? (
 							<RealEstateAuction />
+						) : selectedPage === "admin" ? (
+							<AdminPage />
+						) : selectedPage === "resident" ? (
+							<ResidentPage />
+						) : selectedPage === "bidder" ? (
+							<BidderPage />
 						) : selectedPage === "eerc" ? (
 							<EERCDashboard />
 						) : (

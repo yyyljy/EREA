@@ -11,7 +11,7 @@ interface AvalancheWalletProviderProps {
 
 export function AvalancheWalletProvider({ 
   children, 
-  network 
+  // network 
 }: AvalancheWalletProviderProps) {
   return (
     <QueryClientProvider client={queryClient}>
