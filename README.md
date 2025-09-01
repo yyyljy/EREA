@@ -34,12 +34,6 @@ EREA (Encrypted Real Estate Auction) is an platform that revolutionizes real est
 - **Encryption**: EERC SDK, Zero-Knowledge Proofs
 - **Wallet**: Avalanche Wallet SDK, WalletConnect
 
-## 📋 Prerequisites
-
-- Node.js 18+ 
-- npm or yarn
-- Avalanche wallet (Core, MetaMask with Avalanche)
-
 ## ⚡ Quick Start
 
 1. **Clone the repository**
