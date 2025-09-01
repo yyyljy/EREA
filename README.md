@@ -21,11 +21,6 @@ EREA (Encrypted Real Estate Auction) is an platform that revolutionizes real est
 - **Korean Property Listings**: Properties located in South Korea
 - **Real-Time Bidding**: Instant transaction confirmations
 
-### 📊 Dashboard Features
-- **Portfolio Management**: Track your real estate assets
-- **Transaction History**: Complete audit trail
-- **Analytics**: Performance metrics and insights
-- **Wallet Integration**: Seamless Avalanche wallet connection
 
 ## ⚡ Quick Start
 
