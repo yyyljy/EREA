@@ -42,14 +42,14 @@ interface PropertyRegistration {
   isUnsold: boolean;
 }
 
-interface AuctionManagement {
-  propertyId: string;
-  status: "Active" | "Pending" | "Cancelled" | "Completed";
-  currentBids: number;
-  highestBid?: number;
-  unsoldReason?: string;
-  nextAuctionDate?: string;
-}
+// interface AuctionManagement {
+//   propertyId: string;
+//   status: "Active" | "Pending" | "Cancelled" | "Completed";
+//   currentBids: number;
+//   highestBid?: number;
+//   unsoldReason?: string;
+//   nextAuctionDate?: string;
+// }
 
 export function AdminPage() {
   const [activeTab, setActiveTab] = useState<"register" | "manage" | "residents" | "analytics">("register");

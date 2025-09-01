@@ -137,15 +137,15 @@ export function ResidentPage() {
     }));
   };
 
-  const addPreferredDate = () => {
-    const today = new Date().toISOString().split('T')[0];
-    if (!inspectionForm.preferredDates.includes(today)) {
-      setInspectionForm(prev => ({
-        ...prev,
-        preferredDates: [...prev.preferredDates, today]
-      }));
-    }
-  };
+  // const addPreferredDate = () => {
+  //   const today = new Date().toISOString().split('T')[0];
+  //   if (!inspectionForm.preferredDates.includes(today)) {
+  //     setInspectionForm(prev => ({
+  //       ...prev,
+  //       preferredDates: [...prev.preferredDates, today]
+  //     }));
+  //   }
+  // };
 
   const removePreferredDate = (index: number) => {
     setInspectionForm(prev => ({
