@@ -70,41 +70,6 @@ EREA (Encrypted Real Estate Auction) is an platform that revolutionizes real est
    npm run build
    ```
 
-## 🎯 Usage
-
-### For Buyers
-1. **Connect Wallet**: Link your Avalanche wallet
-2. **Browse Properties**: Explore available Korean real estate
-3. **Place Encrypted Bids**: Submit private, secure bids
-4. **Track Status**: Monitor auction progress in real-time
-
-### For Sellers
-1. **List Properties**: Add verified property information
-2. **Set Auction Parameters**: Configure starting price and duration
-3. **Monitor Bids**: View encrypted bid activity
-4. **Complete Sales**: Automated smart contract execution
-
-## 🏗️ Project Structure
-
-```
-src/
-├── components/          # Reusable UI components
-│   ├── eerc/           # EERC-specific components
-│   ├── layout/         # Layout components
-│   └── index.ts        # Component exports
-├── pages/              # Main application pages
-│   ├── RealEstateAuction.tsx
-│   ├── About.tsx
-│   └── EERCDashboard.tsx
-├── hooks/              # Custom React hooks
-├── types/              # TypeScript type definitions
-├── utils/              # Utility functions
-├── config/             # Configuration files
-├── App.tsx             # Main application component
-├── main.tsx            # Application entry point
-└── index.css           # Global styles
-```
-
 ## 🔗 Blockchain Integration
 
 ### Avalanche EERC
@@ -127,9 +92,5 @@ All properties feature Korean addresses with English descriptions:
 - **Types**: Apartments, Officetels, Commercial, Villas
 - **Documentation**: Verified property records
 - **Legal**: Compliant with Korean real estate laws
-
-## 📄 License
-
-This project is in the public domain. See [LICENSE](LICENSE) for details.
 
 ---
