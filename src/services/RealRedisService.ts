@@ -1,4 +1,4 @@
-import { Property, PropertyRegistrationForm, REDIS_KEYS } from '../types/Property';
+import { Property, PropertyRegistrationForm } from '../types/Property';
 
 // 실제 Redis 연결을 위한 인터페이스
 interface RedisClient {
