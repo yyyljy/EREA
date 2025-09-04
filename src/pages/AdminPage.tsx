@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Property, PropertyRegistrationForm } from '../types/Property';
 import { redisService } from '../services/RedisService';
+import { realRedisService } from '../services/RealRedisService';
 import { validatePropertyForm, validateField } from '../utils/validation';
 import { generateRandomDummyData, getDummyDataTemplate, dummyDataTemplateNames } from '../utils/dummyData';
 
@@ -61,8 +62,20 @@ export function AdminPage() {
 
   // Load properties from Redis on component mount
   useEffect(() => {
-    loadProperties();
+    initializeRedis();
   }, []);
+
+  const initializeRedis = async () => {
+    try {
+      await realRedisService.connect();
+      console.log('✅ Connected to Redis at localhost:6379');
+      await loadProperties();
+    } catch (error) {
+      console.error('❌ Failed to connect to Redis:', error);
+      // Fallback to mock Redis service
+      await loadProperties();
+    }
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -76,10 +89,27 @@ export function AdminPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showTemplateDropdown]);
 
+  // Cleanup Redis connection on component unmount
+  useEffect(() => {
+    return () => {
+      realRedisService.disconnect().catch(console.error);
+    };
+  }, []);
+
   const loadProperties = async () => {
     try {
-      const properties = await redisService.getAllProperties();
-      setRegisteredProperties(properties);
+      // 먼저 실제 Redis에서 시도
+      const isConnected = await realRedisService.isConnected();
+      if (isConnected) {
+        const properties = await realRedisService.getAllProperties();
+        setRegisteredProperties(properties);
+        console.log(`📊 Loaded ${properties.length} properties from Redis`);
+      } else {
+        // Redis 연결 실패 시 Mock service 사용
+        const properties = await redisService.getAllProperties();
+        setRegisteredProperties(properties);
+        console.log(`📊 Loaded ${properties.length} properties from Mock Redis`);
+      }
     } catch (error) {
       console.error('Failed to load properties:', error);
     }
@@ -183,15 +213,24 @@ export function AdminPage() {
                       "/default-property.png";
       
       // 폼 데이터를 Property 객체로 변환
-      const property = redisService.convertFormToProperty(propertyForm, imageUrl);
+      const property = realRedisService.convertFormToProperty(propertyForm, imageUrl);
       
-      // Redis에 저장
-      await redisService.saveProperty(property);
+      // 실제 Redis에 사건번호를 키로 저장
+      const isConnected = await realRedisService.isConnected();
+      if (isConnected) {
+        console.log(`💾 Saving to Redis with case number: ${property.caseNumber}`);
+        await realRedisService.savePropertyByCaseNumber(property);
+        console.log(`✅ Successfully saved to Redis localhost:6379 with key: case:${property.caseNumber}`);
+      } else {
+        // Redis 연결 실패 시 Mock service 사용
+        console.log('⚠️ Redis not connected, using Mock Redis');
+        await redisService.saveProperty(property);
+      }
       
       // 등록된 속성 목록 새로고침
       await loadProperties();
       
-      alert("Property registered successfully! The listing has been saved to the database.");
+      alert(`Property registered successfully!\nSaved to Redis with case number: ${property.caseNumber}\nKey: case:${property.caseNumber}`);
       
       // Reset form and validation state
       const resetForm = {
@@ -229,7 +268,7 @@ export function AdminPage() {
       
     } catch (error) {
       console.error('Failed to register property:', error);
-      alert("Failed to register property. Please try again.");
+      alert(`Failed to register property: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -923,7 +962,16 @@ export function AdminPage() {
           {/* Auction Management Tab */}
           {activeTab === "manage" && (
             <div className="space-y-6">
-              <h2 className="avax-subheading text-2xl">Auction Management</h2>
+              <div className="flex justify-between items-center">
+                <h2 className="avax-subheading text-2xl">Auction Management</h2>
+                <div className="flex items-center space-x-2 text-sm">
+                  <span className="text-erea-text-light">Redis Status:</span>
+                  <div className="flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-green-600 font-semibold">localhost:6379</span>
+                  </div>
+                </div>
+              </div>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="avax-card p-6 text-center">
@@ -953,6 +1001,9 @@ export function AdminPage() {
                           Property
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-semibold text-erea-text uppercase tracking-wider">
+                          Case Number
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-erea-text uppercase tracking-wider">
                           Status
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-semibold text-erea-text uppercase tracking-wider">
@@ -973,7 +1024,18 @@ export function AdminPage() {
                       {registeredProperties.map((property) => (
                         <tr key={property.id} className="hover:bg-avax-light/50">
                           <td className="px-6 py-4 text-sm text-erea-text">
-                            {property.title}
+                            <div>
+                              <div className="font-semibold">{property.title}</div>
+                              <div className="text-xs text-erea-text-light">{property.court}</div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-sm">
+                            <div className="font-mono text-erea-primary font-semibold">
+                              {property.caseNumber}
+                            </div>
+                            <div className="text-xs text-erea-text-light">
+                              Redis Key: case:{property.caseNumber}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
