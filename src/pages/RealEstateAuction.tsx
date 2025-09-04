@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Property } from '../types/Property';
 import { redisService } from '../services/RedisService';
+import { realRedisService } from '../services/RealRedisService';
 
 // Property interface is now imported from types/Property.ts
 
@@ -130,36 +131,87 @@ export function RealEstateAuction() {
   const [filterStatus, setFilterStatus] = useState<"All" | "Active" | "Closed" | "Pending">("All");
   const [properties, setProperties] = useState<Property[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [dataSource, setDataSource] = useState<'Real Redis' | 'Mock Redis' | 'Static Data'>('Static Data');
 
   // Load properties from Redis on component mount
   useEffect(() => {
-    loadProperties();
+    initializeAndLoadProperties();
+    
+    // Cleanup function to disconnect from Redis
+    return () => {
+      realRedisService.disconnect().catch(console.error);
+    };
   }, []);
+
+  const initializeAndLoadProperties = async () => {
+    try {
+      // Connect to real Redis first
+      await realRedisService.connect();
+      console.log('🔌 Connected to Redis for RealEstateAuction');
+      await loadProperties();
+    } catch (error) {
+      console.error('❌ Failed to connect to Redis:', error);
+      // Fallback to loading from mock Redis or direct properties
+      await loadProperties();
+    }
+  };
 
   const loadProperties = async () => {
     try {
       setIsLoading(true);
-      const propertiesData = await redisService.getAllProperties();
       
-      // If no properties in Redis, initialize with mock data
-      if (propertiesData.length === 0) {
-        await initializeMockData();
-        const newPropertiesData = await redisService.getAllProperties();
-        setProperties(newPropertiesData);
+      // Try to load from real Redis first
+      const isRealRedisConnected = await realRedisService.isConnected();
+      if (isRealRedisConnected) {
+        console.log('📊 Loading properties from Real Redis (case number keys)');
+        const propertiesData = await realRedisService.getAllProperties();
+        
+        if (propertiesData.length === 0) {
+          console.log('📝 No properties in Real Redis, trying Mock Redis');
+          // Try mock Redis as fallback
+          const mockData = await redisService.getAllProperties();
+          if (mockData.length === 0) {
+            // Initialize with static mock data
+            await initializeMockData();
+            const newMockData = await redisService.getAllProperties();
+            setProperties(newMockData);
+            setDataSource('Mock Redis');
+          } else {
+            setProperties(mockData);
+            setDataSource('Mock Redis');
+          }
+        } else {
+          setProperties(propertiesData);
+          setDataSource('Real Redis');
+          console.log(`✅ Loaded ${propertiesData.length} properties from Real Redis`);
+        }
       } else {
-        setProperties(propertiesData);
+        console.log('📊 Real Redis not connected, using Mock Redis');
+        const propertiesData = await redisService.getAllProperties();
+        
+        if (propertiesData.length === 0) {
+          await initializeMockData();
+          const newPropertiesData = await redisService.getAllProperties();
+          setProperties(newPropertiesData);
+          setDataSource('Mock Redis');
+        } else {
+          setProperties(propertiesData);
+          setDataSource('Mock Redis');
+        }
       }
     } catch (error) {
       console.error('Failed to load properties:', error);
-      setProperties(mockProperties); // Fallback to mock data
+      setProperties(mockProperties); // Final fallback to static mock data
+      setDataSource('Static Data');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Initialize Redis with mock data if empty
+  // Initialize Mock Redis with static data if empty (fallback only)
   const initializeMockData = async () => {
     try {
+      console.log('📝 Initializing Mock Redis with static data...');
       for (const mockProperty of mockProperties) {
         // Convert mock property to the new format
         const property: Property = {
@@ -181,9 +233,9 @@ export function RealEstateAuction() {
         
         await redisService.saveProperty(property);
       }
-      console.log('Mock data initialized in Redis');
+      console.log('✅ Mock data initialized in Mock Redis (fallback)');
     } catch (error) {
-      console.error('Failed to initialize mock data:', error);
+      console.error('❌ Failed to initialize mock data:', error);
     }
   };
 
@@ -264,7 +316,24 @@ export function RealEstateAuction() {
       {/* Filter Controls */}
       <div className="avax-card p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <h2 className="avax-subheading text-2xl">Property Listings</h2>
+          <div className="flex items-center space-x-4">
+            <h2 className="avax-subheading text-2xl">Property Listings</h2>
+            <div className="flex items-center space-x-2 text-sm">
+              <span className="text-erea-text-light">Data Source:</span>
+              <div className="flex items-center space-x-1">
+                <div className={`w-2 h-2 rounded-full ${
+                  dataSource === 'Real Redis' ? 'bg-green-500 animate-pulse' :
+                  dataSource === 'Mock Redis' ? 'bg-yellow-500' : 'bg-gray-500'
+                }`}></div>
+                <span className={`font-semibold text-xs px-2 py-1 rounded ${
+                  dataSource === 'Real Redis' ? 'bg-green-100 text-green-700' :
+                  dataSource === 'Mock Redis' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'
+                }`}>
+                  {dataSource}
+                </span>
+              </div>
+            </div>
+          </div>
           <div className="flex items-center space-x-4">
             <label className="avax-body font-semibold">Filter by Status:</label>
             <select 
