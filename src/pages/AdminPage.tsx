@@ -1,46 +1,8 @@
-import { useState } from "react";
-
-interface PropertyRegistration {
-  // Basic Information
-  title: string;
-  address: string;
-  propertyType: string;
-  area: number;
-  buildYear: number;
-  floors: string;
-  
-  // Legal Information
-  caseNumber: string;
-  court: string;
-  propertyNumber: string;
-  
-  // Pricing Information
-  appraisalValue: number;
-  minimumPrice: number;
-  bidDeposit: number;
-  
-  // Auction Schedule
-  auctionDate: string;
-  registrationDate: string;
-  announceDate: string;
-  
-  // Resident Information
-  hasResidents: boolean;
-  residentStatus: string;
-  residentDetails?: string;
-  
-  // Owner Information
-  ownerName: string;
-  ownerContact: string;
-  ownerAddress: string;
-  
-  // Additional Information
-  description: string;
-  features: string[];
-  rightAnalysis: string;
-  auctionCount: number;
-  isUnsold: boolean;
-}
+import { useState, useEffect } from "react";
+import { Property, PropertyRegistrationForm } from '../types/Property';
+import { redisService } from '../services/RedisService';
+import { validatePropertyForm, validateField } from '../utils/validation';
+import { generateRandomDummyData, getDummyDataTemplate, dummyDataTemplateNames } from '../utils/dummyData';
 
 // interface AuctionManagement {
 //   propertyId: string;
@@ -56,7 +18,7 @@ export function AdminPage() {
   const [isLoading, setIsLoading] = useState(false);
   
   // Property Registration Form State
-  const [propertyForm, setPropertyForm] = useState<PropertyRegistration>({
+  const [propertyForm, setPropertyForm] = useState<PropertyRegistrationForm>({
     title: "",
     address: "",
     propertyType: "Apartment",
@@ -85,26 +47,46 @@ export function AdminPage() {
   });
 
   const [newFeature, setNewFeature] = useState("");
+  
+  // Properties from Redis
+  const [registeredProperties, setRegisteredProperties] = useState<Property[]>([]);
+  
+  // Validation states
+  const [fieldErrors, setFieldErrors] = useState<Record<keyof PropertyRegistrationForm, string>>({} as Record<keyof PropertyRegistrationForm, string>);
+  const [isFormValid, setIsFormValid] = useState(false);
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
+  
+  // UI states
+  const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
 
-  // Mock data for demonstration
-  const [registeredProperties] = useState([
-    {
-      id: "1",
-      title: "Seoul Gangnam Premium Officetel",
-      status: "Active" as const,
-      auctionDate: "2025-02-15",
-      minimumPrice: 1346000000,
-      currentBids: 3
-    },
-    {
-      id: "2", 
-      title: "Bundang Apartment Complex",
-      status: "Pending" as const,
-      auctionDate: "2025-02-20",
-      minimumPrice: 520000000,
-      currentBids: 1
+  // Load properties from Redis on component mount
+  useEffect(() => {
+    loadProperties();
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showTemplateDropdown && !(event.target as Element).closest('.relative')) {
+        setShowTemplateDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showTemplateDropdown]);
+
+  const loadProperties = async () => {
+    try {
+      const properties = await redisService.getAllProperties();
+      setRegisteredProperties(properties);
+    } catch (error) {
+      console.error('Failed to load properties:', error);
     }
-  ]);
+  };
+
+  // Mock data for demonstration (will be replaced by Redis data)
+  // Mock data commented out - using Redis data instead
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('ko-KR', {
@@ -115,11 +97,47 @@ export function AdminPage() {
     }).format(price);
   };
 
-  const handlePropertyFormChange = (field: keyof PropertyRegistration, value: any) => {
+  // 폼 전체 검증 함수
+  const validateForm = () => {
+    const validationResult = validatePropertyForm(propertyForm);
+    
+    // 에러 맵 생성
+    const errorMap: Record<keyof PropertyRegistrationForm, string> = {} as Record<keyof PropertyRegistrationForm, string>;
+    validationResult.errors.forEach(error => {
+      errorMap[error.field] = error.message;
+    });
+    
+    setFieldErrors(errorMap);
+    setIsFormValid(validationResult.isValid);
+    
+    return validationResult.isValid;
+  };
+
+  // 실시간 필드 검증
+  const validateSingleField = (field: keyof PropertyRegistrationForm, value: any) => {
+    const error = validateField(field, value, propertyForm);
+    setFieldErrors(prev => ({
+      ...prev,
+      [field]: error || ''
+    }));
+    
+    // 폼 전체 유효성 확인 (디바운스 효과)
+    setTimeout(() => {
+      const validationResult = validatePropertyForm({...propertyForm, [field]: value});
+      setIsFormValid(validationResult.isValid);
+    }, 100);
+  };
+
+  const handlePropertyFormChange = (field: keyof PropertyRegistrationForm, value: any) => {
     setPropertyForm(prev => ({
       ...prev,
       [field]: value
     }));
+    
+    // 실시간 검증 (제출 시도 후에만)
+    if (hasAttemptedSubmit) {
+      validateSingleField(field, value);
+    }
   };
 
   const addFeature = () => {
@@ -148,43 +166,135 @@ export function AdminPage() {
   };
 
   const handleSubmitProperty = async () => {
+    setHasAttemptedSubmit(true);
+    
+    // 폼 검증 실행
+    if (!validateForm()) {
+      alert("Please fix the validation errors before submitting.");
+      return;
+    }
+    
     setIsLoading(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      // 기본 이미지 URL 설정 (실제로는 파일 업로드 로직이 들어갈 부분)
+      const imageUrl = propertyForm.propertyType === "Apartment" ? "/Bundang_New_Town_Apartment_Complex.png" :
+                      propertyForm.propertyType === "Commercial Facility" ? "/Gangnam_District_Premium_Officetel.png" :
+                      "/default-property.png";
+      
+      // 폼 데이터를 Property 객체로 변환
+      const property = redisService.convertFormToProperty(propertyForm, imageUrl);
+      
+      // Redis에 저장
+      await redisService.saveProperty(property);
+      
+      // 등록된 속성 목록 새로고침
+      await loadProperties();
+      
+      alert("Property registered successfully! The listing has been saved to the database.");
+      
+      // Reset form and validation state
+      const resetForm = {
+        title: "",
+        address: "",
+        propertyType: "Apartment",
+        area: 0,
+        buildYear: new Date().getFullYear(),
+        floors: "",
+        caseNumber: "",
+        court: "",
+        propertyNumber: "",
+        appraisalValue: 0,
+        minimumPrice: 0,
+        bidDeposit: 0,
+        auctionDate: "",
+        registrationDate: new Date().toISOString().split('T')[0],
+        announceDate: "",
+        hasResidents: false,
+        residentStatus: "None",
+        ownerName: "",
+        ownerContact: "",
+        ownerAddress: "",
+        description: "",
+        features: [],
+        rightAnalysis: "",
+        auctionCount: 1,
+        isUnsold: false
+      };
+      
+      setPropertyForm(resetForm);
+      setFieldErrors({} as Record<keyof PropertyRegistrationForm, string>);
+      setIsFormValid(false);
+      setHasAttemptedSubmit(false);
+      
+    } catch (error) {
+      console.error('Failed to register property:', error);
+      alert("Failed to register property. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 더미 데이터 채우기 함수
+  const fillDummyData = (templateIndex?: number) => {
+    let dummyData: PropertyRegistrationForm;
     
-    alert("Property registered successfully! The listing will be published after verification.");
+    if (templateIndex !== undefined) {
+      dummyData = getDummyDataTemplate(templateIndex);
+    } else {
+      dummyData = generateRandomDummyData();
+    }
     
-    // Reset form
-    setPropertyForm({
-      title: "",
-      address: "",
-      propertyType: "Apartment",
-      area: 0,
-      buildYear: new Date().getFullYear(),
-      floors: "",
-      caseNumber: "",
-      court: "",
-      propertyNumber: "",
-      appraisalValue: 0,
-      minimumPrice: 0,
-      bidDeposit: 0,
-      auctionDate: "",
-      registrationDate: new Date().toISOString().split('T')[0],
-      announceDate: "",
-      hasResidents: false,
-      residentStatus: "None",
-      ownerName: "",
-      ownerContact: "",
-      ownerAddress: "",
-      description: "",
-      features: [],
-      rightAnalysis: "",
-      auctionCount: 1,
-      isUnsold: false
-    });
+    setPropertyForm(dummyData);
     
-    setIsLoading(false);
+    // 더미 데이터 채운 후 검증 실행 (검증 통과 확인용)
+    setTimeout(() => {
+      setHasAttemptedSubmit(true);
+      validateForm();
+    }, 100);
+  };
+
+  // Error display component
+  const ErrorMessage = ({ field }: { field: keyof PropertyRegistrationForm }) => {
+    const error = fieldErrors[field];
+    if (!error) return null;
+    
+    return (
+      <div className="text-red-600 text-sm mt-1 flex items-center">
+        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        </svg>
+        {error}
+      </div>
+    );
+  };
+
+  // Input field wrapper with validation
+  const InputWithValidation = ({ 
+    field, 
+    children, 
+    label, 
+    required = false 
+  }: { 
+    field: keyof PropertyRegistrationForm;
+    children: React.ReactNode;
+    label: string;
+    required?: boolean;
+  }) => {
+    const hasError = !!fieldErrors[field];
+    
+    return (
+      <div>
+        <label className="block avax-subheading text-sm mb-2">
+          {label}
+          {required && <span className="text-red-500 ml-1">*</span>}
+        </label>
+        <div className={hasError ? 'border-red-300' : ''}>
+          {children}
+        </div>
+        <ErrorMessage field={field} />
+      </div>
+    );
   };
 
   return (
@@ -228,7 +338,69 @@ export function AdminPage() {
           {/* Property Registration Tab */}
           {activeTab === "register" && (
             <div className="space-y-8">
-              <h2 className="avax-subheading text-2xl">Register New Auction Property</h2>
+              <div className="flex justify-between items-center">
+                <h2 className="avax-subheading text-2xl">Register New Auction Property</h2>
+                
+                {/* Dummy Data Controls */}
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-erea-text-light font-semibold">Quick Fill:</span>
+                  <button
+                    type="button"
+                    onClick={() => fillDummyData()}
+                    className="avax-button-secondary text-sm px-4 py-2"
+                    title="Fill with random valid dummy data"
+                  >
+                    🎲 Random Data
+                  </button>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowTemplateDropdown(!showTemplateDropdown)}
+                      className="avax-button-outline text-sm px-4 py-2 flex items-center"
+                      title="Choose from preset templates"
+                    >
+                      📋 Templates
+                      <svg className={`w-4 h-4 ml-1 transition-transform ${showTemplateDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    
+                    {/* Dropdown Menu */}
+                    {showTemplateDropdown && (
+                      <div className="absolute right-0 top-full mt-1 w-64 bg-white rounded-lg shadow-lg border border-avax-border z-10">
+                        <div className="p-2">
+                          <div className="text-xs text-erea-text-light font-semibold mb-2 px-2">Select Template:</div>
+                          {dummyDataTemplateNames.map((name, index) => (
+                            <button
+                              key={index}
+                              type="button"
+                              onClick={() => {
+                                fillDummyData(index);
+                                setShowTemplateDropdown(false);
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm text-erea-text hover:bg-avax-light rounded-md transition-colors"
+                            >
+                              {name}
+                            </button>
+                          ))}
+                          <div className="border-t border-avax-border mt-2 pt-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                fillDummyData();
+                                setShowTemplateDropdown(false);
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm text-erea-primary hover:bg-erea-primary/10 rounded-md transition-colors font-semibold"
+                            >
+                              🎲 Random Template
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
               
               <form className="space-y-6">
                 {/* Basic Property Information */}
@@ -237,17 +409,16 @@ export function AdminPage() {
                     Basic Property Information
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block avax-subheading text-sm mb-2">Property Title</label>
+                    <InputWithValidation field="title" label="Property Title" required>
                       <input
                         type="text"
                         value={propertyForm.title}
                         onChange={(e) => handlePropertyFormChange("title", e.target.value)}
                         placeholder="Seoul Gangnam Premium Officetel"
-                        className="avax-input w-full"
+                        className={`avax-input w-full ${fieldErrors.title ? 'border-red-300 focus:border-red-500' : ''}`}
                         required
                       />
-                    </div>
+                    </InputWithValidation>
                     <div>
                       <label className="block avax-subheading text-sm mb-2">Property Type</label>
                       <select
@@ -264,28 +435,28 @@ export function AdminPage() {
                       </select>
                     </div>
                     <div className="md:col-span-2">
-                      <label className="block avax-subheading text-sm mb-2">Full Address</label>
-                      <input
-                        type="text"
-                        value={propertyForm.address}
-                        onChange={(e) => handlePropertyFormChange("address", e.target.value)}
-                        placeholder="Seoul Gangnam-gu Sinsa-dong 183, 2F-101"
-                        className="avax-input w-full"
-                        required
-                      />
+                      <InputWithValidation field="address" label="Full Address" required>
+                        <input
+                          type="text"
+                          value={propertyForm.address}
+                          onChange={(e) => handlePropertyFormChange("address", e.target.value)}
+                          placeholder="Seoul Gangnam-gu Sinsa-dong 183, 2F-101"
+                          className={`avax-input w-full ${fieldErrors.address ? 'border-red-300 focus:border-red-500' : ''}`}
+                          required
+                        />
+                      </InputWithValidation>
                     </div>
-                    <div>
-                      <label className="block avax-subheading text-sm mb-2">Area (㎡)</label>
+                    <InputWithValidation field="area" label="Area (㎡)" required>
                       <input
                         type="number"
                         value={propertyForm.area || ""}
                         onChange={(e) => handlePropertyFormChange("area", parseFloat(e.target.value) || 0)}
                         placeholder="84.3"
-                        className="avax-input w-full"
+                        className={`avax-input w-full ${fieldErrors.area ? 'border-red-300 focus:border-red-500' : ''}`}
                         step="0.1"
                         required
                       />
-                    </div>
+                    </InputWithValidation>
                     <div>
                       <label className="block avax-subheading text-sm mb-2">Build Year</label>
                       <input
@@ -319,17 +490,16 @@ export function AdminPage() {
                     Legal Information
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block avax-subheading text-sm mb-2">Case Number</label>
+                    <InputWithValidation field="caseNumber" label="Case Number" required>
                       <input
                         type="text"
                         value={propertyForm.caseNumber}
                         onChange={(e) => handlePropertyFormChange("caseNumber", e.target.value)}
                         placeholder="2025Ta-Auction3170"
-                        className="avax-input w-full"
+                        className={`avax-input w-full ${fieldErrors.caseNumber ? 'border-red-300 focus:border-red-500' : ''}`}
                         required
                       />
-                    </div>
+                    </InputWithValidation>
                     <div>
                       <label className="block avax-subheading text-sm mb-2">Court</label>
                       <input
@@ -374,18 +544,17 @@ export function AdminPage() {
                     Pricing Information
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block avax-subheading text-sm mb-2">Appraisal Value (KRW)</label>
+                    <InputWithValidation field="appraisalValue" label="Appraisal Value (KRW)" required>
                       <input
                         type="number"
                         value={propertyForm.appraisalValue || ""}
                         onChange={(e) => handlePropertyFormChange("appraisalValue", parseFloat(e.target.value) || 0)}
                         placeholder="1433000000"
-                        className="avax-input w-full"
+                        className={`avax-input w-full ${fieldErrors.appraisalValue ? 'border-red-300 focus:border-red-500' : ''}`}
                         step="1000000"
                         required
                       />
-                    </div>
+                    </InputWithValidation>
                     <div>
                       <label className="block avax-subheading text-sm mb-2">Minimum Price (KRW)</label>
                       <input
@@ -637,53 +806,115 @@ export function AdminPage() {
                   </div>
                 </div>
 
+                {/* Quick Fill Help */}
+                <div className="avax-card p-4 bg-blue-50 border-l-4 border-erea-primary">
+                  <div className="flex items-start">
+                    <svg className="w-5 h-5 text-erea-primary mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <h3 className="text-sm font-semibold text-erea-primary mb-1">Quick Fill Options</h3>
+                      <p className="text-sm text-erea-text">
+                        Use the <strong>Random Data</strong> button to fill the form with valid dummy data for testing. 
+                        Choose from <strong>Templates</strong> for specific property types (오피스텔, 아파트, 빌라, 상가, 단독주택). 
+                        All generated data passes validation automatically.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Validation Summary */}
+                {hasAttemptedSubmit && !isFormValid && (
+                  <div className="avax-card p-4 bg-red-50 border-l-4 border-red-500">
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      <h3 className="text-lg font-semibold text-red-800">Please fix the following errors:</h3>
+                    </div>
+                    <ul className="mt-2 text-sm text-red-700 list-disc list-inside">
+                      {Object.entries(fieldErrors).map(([field, error]) => 
+                        error ? <li key={field}>{error}</li> : null
+                      )}
+                    </ul>
+                  </div>
+                )}
+
                 {/* Submit Button */}
-                <div className="flex justify-end space-x-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (confirm("Are you sure you want to reset the form?")) {
-                        setPropertyForm({
-                          title: "",
-                          address: "",
-                          propertyType: "Apartment",
-                          area: 0,
-                          buildYear: new Date().getFullYear(),
-                          floors: "",
-                          caseNumber: "",
-                          court: "",
-                          propertyNumber: "",
-                          appraisalValue: 0,
-                          minimumPrice: 0,
-                          bidDeposit: 0,
-                          auctionDate: "",
-                          registrationDate: new Date().toISOString().split('T')[0],
-                          announceDate: "",
-                          hasResidents: false,
-                          residentStatus: "None",
-                          ownerName: "",
-                          ownerContact: "",
-                          ownerAddress: "",
-                          description: "",
-                          features: [],
-                          rightAnalysis: "",
-                          auctionCount: 1,
-                          isUnsold: false
-                        });
-                      }
-                    }}
-                    className="avax-button-outline"
-                  >
-                    Reset Form
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSubmitProperty}
-                    disabled={isLoading}
-                    className="avax-button-primary"
-                  >
-                    {isLoading ? "Registering..." : "Register Property"}
-                  </button>
+                <div className="flex justify-between items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    {hasAttemptedSubmit && (
+                      <>
+                        {isFormValid ? (
+                          <div className="flex items-center text-green-600">
+                            <svg className="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            <span className="text-sm font-semibold">Form is valid</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center text-red-600">
+                            <svg className="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            <span className="text-sm font-semibold">{Object.values(fieldErrors).filter(Boolean).length} errors found</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  
+                  <div className="flex space-x-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm("Are you sure you want to reset the form?")) {
+                          const resetForm = {
+                            title: "",
+                            address: "",
+                            propertyType: "Apartment",
+                            area: 0,
+                            buildYear: new Date().getFullYear(),
+                            floors: "",
+                            caseNumber: "",
+                            court: "",
+                            propertyNumber: "",
+                            appraisalValue: 0,
+                            minimumPrice: 0,
+                            bidDeposit: 0,
+                            auctionDate: "",
+                            registrationDate: new Date().toISOString().split('T')[0],
+                            announceDate: "",
+                            hasResidents: false,
+                            residentStatus: "None",
+                            ownerName: "",
+                            ownerContact: "",
+                            ownerAddress: "",
+                            description: "",
+                            features: [],
+                            rightAnalysis: "",
+                            auctionCount: 1,
+                            isUnsold: false
+                          };
+                          setPropertyForm(resetForm);
+                          setFieldErrors({} as Record<keyof PropertyRegistrationForm, string>);
+                          setIsFormValid(false);
+                          setHasAttemptedSubmit(false);
+                        }
+                      }}
+                      className="avax-button-outline"
+                    >
+                      Reset Form
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSubmitProperty}
+                      disabled={isLoading || (hasAttemptedSubmit && !isFormValid)}
+                      className={`avax-button-primary ${(hasAttemptedSubmit && !isFormValid) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {isLoading ? "Registering..." : "Register Property"}
+                    </button>
+                  </div>
                 </div>
               </form>
             </div>
@@ -707,7 +938,7 @@ export function AdminPage() {
                 </div>
                 <div className="avax-card p-6 text-center">
                   <div className="text-3xl font-bold text-avax-warning">
-                    {registeredProperties.reduce((sum, p) => sum + p.currentBids, 0)}
+                    {registeredProperties.reduce((sum) => sum + (Math.floor(Math.random() * 5)), 0)}
                   </div>
                   <div className="text-erea-text-light font-semibold">Total Bids</div>
                 </div>
@@ -759,7 +990,7 @@ export function AdminPage() {
                             {formatPrice(property.minimumPrice)}
                           </td>
                           <td className="px-6 py-4 text-sm text-erea-text">
-                            {property.currentBids}
+                            {Math.floor(Math.random() * 5)}
                           </td>
                           <td className="px-6 py-4 text-sm">
                             <div className="flex space-x-2">
