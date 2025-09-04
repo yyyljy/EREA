@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState } from "react";
+import { Suspense, lazy, useState, useEffect } from "react";
 
 // Lazy load page components
 const RealEstateAuction = lazy(() =>
@@ -29,6 +29,20 @@ const LoadingFallback = () => (
 
 export function App() {
 	const [selectedPage, setSelectedPage] = useState<"auction" | "about" | "eerc" | "admin" | "resident" | "bidder">("auction");
+	const [showDemoModal, setShowDemoModal] = useState(false);
+
+	useEffect(() => {
+		// Check if user has seen the demo modal before
+		const hasSeenDemoModal = localStorage.getItem('erea-demo-modal-seen');
+		if (!hasSeenDemoModal) {
+			setShowDemoModal(true);
+		}
+	}, []);
+
+	const closeDemoModal = () => {
+		setShowDemoModal(false);
+		localStorage.setItem('erea-demo-modal-seen', 'true');
+	};
 
 	return (
 		<div className="min-h-screen bg-avax-light">
@@ -165,6 +179,58 @@ export function App() {
 					</Suspense>
 				</div>
 			</main>
+
+			{/* Demo Site Modal */}
+			{showDemoModal && (
+				<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+					<div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+						<div className="p-6">
+							{/* Modal Header */}
+							<div className="flex items-center justify-center mb-4">
+								<div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+									<svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+									</svg>
+								</div>
+							</div>
+							
+							{/* Modal Content */}
+							<div className="text-center">
+								<h3 className="text-lg font-semibold text-gray-900 mb-4">
+									Demo Site Notice
+								</h3>
+								<p className="text-gray-600 mb-6 leading-relaxed">
+									The EREA (Encrypted Real Estate Auction) platform you are currently viewing is a 
+									<strong className="text-orange-600"> demo site</strong>.
+									<br /><br />
+									All real estate information, auction data, and user information consists of 
+									<strong> dummy data</strong> and is not related to actual transactions or services.
+								</p>
+								
+								{/* Demo Features Notice */}
+								<div className="bg-gray-50 rounded-lg p-4 mb-6">
+									<p className="text-sm text-gray-700">
+										<strong>Demo Features:</strong><br />
+										• Virtual real estate auction listings<br />
+										• Simulated bidding processes<br />
+										• Test admin/user interfaces
+									</p>
+								</div>
+							</div>
+							
+							{/* Modal Actions */}
+							<div className="flex justify-center">
+								<button
+									onClick={closeDemoModal}
+									className="bg-erea-primary hover:bg-erea-primary-dark text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
+								>
+									I Understand
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			)}
 
 			{/* Footer */}
 			<footer className="bg-avax-dark text-white mt-12">

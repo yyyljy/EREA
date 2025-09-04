@@ -200,7 +200,7 @@ export function RealEstateAuction() {
       </div>
 
       {/* Statistics Banner */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="flex flex-wrap justify-center gap-6 max-w-2xl mx-auto">
         <div className="avax-card p-6 text-center">
           <div className="text-3xl font-bold text-erea-primary">{mockProperties.length}</div>
           <div className="text-erea-text-light font-semibold">Active Listings</div>
@@ -208,14 +208,6 @@ export function RealEstateAuction() {
         <div className="avax-card p-6 text-center">
           <div className="text-3xl font-bold text-avax-success">{mockProperties.filter(p => p.status === 'Active').length}</div>
           <div className="text-erea-text-light font-semibold">Ending Soon</div>
-        </div>
-        <div className="avax-card p-6 text-center">
-          <div className="text-3xl font-bold text-avax-black">156</div>
-          <div className="text-erea-text-light font-semibold">Verified Bidders</div>
-        </div>
-        <div className="avax-card p-6 text-center">
-          <div className="text-3xl font-bold text-avax-accent">98%</div>
-          <div className="text-erea-text-light font-semibold">Success Rate</div>
         </div>
       </div>
 
