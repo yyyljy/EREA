@@ -1,7 +1,7 @@
 import { Property, PropertyRegistrationForm } from '../types/Property';
 
 // API 기본 설정
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+const API_BASE_URL = 'http://175.123.85.69:8000/api/v1';
 
 // API 응답 타입
 interface ApiResponse<T> {
