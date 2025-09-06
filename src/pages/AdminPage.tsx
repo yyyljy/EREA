@@ -127,8 +127,9 @@ export function AdminPage() {
   };
 
   // 폼 전체 검증 함수
-  const validateForm = () => {
-    const validationResult = validatePropertyForm(propertyForm);
+  const validateForm = (formData?: PropertyRegistrationForm) => {
+    const dataToValidate = formData || propertyForm;
+    const validationResult = validatePropertyForm(dataToValidate);
     
     // 에러 맵 생성
     const errorMap: Record<keyof PropertyRegistrationForm, string> = {} as Record<keyof PropertyRegistrationForm, string>;
@@ -286,11 +287,10 @@ export function AdminPage() {
     
     setPropertyForm(dummyData);
     
-    // 더미 데이터 채운 후 검증 실행 (검증 통과 확인용)
-    setTimeout(() => {
-      setHasAttemptedSubmit(true);
-      validateForm();
-    }, 100);
+    // 더미 데이터 채운 후 검증 실행 (새로운 데이터로 즉시 검증)
+    setHasAttemptedSubmit(true);
+    // 새로운 dummyData를 직접 전달하여 검증
+    validateForm(dummyData);
   };
 
   // Error display component
