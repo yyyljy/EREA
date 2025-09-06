@@ -1,7 +1,7 @@
 import { Property, PropertyRegistrationForm } from '../types/Property';
 
 // API 기본 설정
-const API_BASE_URL = 'http://175.123.85.69:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://175.123.85.69:8000/api/v1';
 
 // API 응답 타입
 interface ApiResponse<T> {
@@ -154,7 +154,7 @@ export class ApiService {
   async getAllProperties(): Promise<Property[]> {
     try {
       console.log('🌐 Fetching all properties from backend API...');
-      const response = await this.request<BackendProperty[]>('/properties');
+      const response = await this.request<BackendProperty[]>('/properties/');
       
       if (response.success && response.data) {
         const properties = response.data.map(bp => this.convertToFrontendProperty(bp));
@@ -195,7 +195,7 @@ export class ApiService {
       console.log(`💾 Saving property ${property.title} to backend API...`);
       const backendProperty = this.convertToBackendProperty(property);
       
-      const response = await this.request<BackendProperty>('/properties', {
+      const response = await this.request<BackendProperty>('/properties/', {
         method: 'POST',
         body: JSON.stringify(backendProperty)
       });
