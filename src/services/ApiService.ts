@@ -63,6 +63,8 @@ export class ApiService {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     const url = `${API_BASE_URL}${endpoint}`;
+    console.log(`🔗 API 요청 URL: ${url}`);
+    console.log(`📤 API 요청 옵션:`, options);
     
     const defaultOptions: RequestInit = {
       headers: {
@@ -71,8 +73,11 @@ export class ApiService {
     };
 
     try {
+      console.log(`🚀 fetch 요청 시작: ${url}`);
       const response = await fetch(url, { ...defaultOptions, ...options });
+      console.log(`📥 응답 상태: ${response.status} ${response.statusText}`);
       const data = await response.json();
+      console.log(`📋 응답 데이터:`, data);
       
       if (!response.ok) {
         throw new Error(data.error || `HTTP error! status: ${response.status}`);

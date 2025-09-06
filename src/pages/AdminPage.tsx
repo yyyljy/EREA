@@ -195,14 +195,19 @@ export function AdminPage() {
   };
 
   const handleSubmitProperty = async () => {
+    console.log('🔥 handleSubmitProperty 시작');
     setHasAttemptedSubmit(true);
     
     // 폼 검증 실행
-    if (!validateForm()) {
+    const isValid = validateForm();
+    console.log('📝 폼 검증 결과:', isValid);
+    if (!isValid) {
+      console.log('❌ 폼 검증 실패 - API 호출 중단');
       alert("Please fix the validation errors before submitting.");
       return;
     }
     
+    console.log('✅ 폼 검증 통과 - API 호출 시작');
     setIsLoading(true);
     
     try {
@@ -212,10 +217,13 @@ export function AdminPage() {
                       "/default-property.png";
       
       // 폼 데이터를 Property 객체로 변환
+      console.log('🔄 Property 객체 변환 중...');
       const property = apiService.convertFormToProperty(propertyForm, imageUrl);
+      console.log('📄 변환된 Property 객체:', property);
       
       // 백엔드 API에 저장
       console.log(`💾 Saving to backend API: ${property.title}`);
+      console.log('🌐 API 호출 시작...');
       await apiService.saveProperty(property);
       console.log(`✅ Successfully saved to backend API with case number: ${property.caseNumber}`);
       
