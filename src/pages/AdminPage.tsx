@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Property, PropertyRegistrationForm } from '../types/Property';
-import { redisService } from '../services/RedisService';
-import { realRedisService } from '../services/RealRedisService';
+import { apiService } from '../services/ApiService';
 import { validatePropertyForm, validateField } from '../utils/validation';
 import { generateRandomDummyData, getDummyDataTemplate, dummyDataTemplateNames } from '../utils/dummyData';
 
@@ -17,6 +16,7 @@ import { generateRandomDummyData, getDummyDataTemplate, dummyDataTemplateNames }
 export function AdminPage() {
   const [activeTab, setActiveTab] = useState<"register" | "manage" | "residents" | "analytics">("register");
   const [isLoading, setIsLoading] = useState(false);
+  const [isRedisConnected, setIsRedisConnected] = useState(false);
   
   // Property Registration Form State
   const [propertyForm, setPropertyForm] = useState<PropertyRegistrationForm>({
@@ -62,18 +62,24 @@ export function AdminPage() {
 
   // Load properties from Redis on component mount
   useEffect(() => {
-    initializeRedis();
+    initializeApiConnection();
   }, []);
 
-  const initializeRedis = async () => {
+  const initializeApiConnection = async () => {
     try {
-      await realRedisService.connect();
-      console.log('✅ Connected to Redis at localhost:6379');
-      await loadProperties();
+      const isConnected = await apiService.isConnected();
+      if (isConnected) {
+        const healthCheck = await apiService.healthCheck();
+        console.log('✅ Connected to backend API:', healthCheck.message);
+        setIsRedisConnected(true);
+        await loadProperties();
+      } else {
+        throw new Error('API server is not responding');
+      }
     } catch (error) {
-      console.error('❌ Failed to connect to Redis:', error);
-      // Fallback to mock Redis service
-      await loadProperties();
+      console.error('❌ Failed to connect to backend API:', error);
+      setIsRedisConnected(false);
+      await loadProperties(); // 실패해도 로드 시도
     }
   };
 
@@ -89,29 +95,22 @@ export function AdminPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showTemplateDropdown]);
 
-  // Cleanup Redis connection on component unmount
+  // Cleanup on component unmount
   useEffect(() => {
     return () => {
-      realRedisService.disconnect().catch(console.error);
+      // No need to disconnect from REST API
     };
   }, []);
 
   const loadProperties = async () => {
     try {
-      // 먼저 실제 Redis에서 시도
-      const isConnected = await realRedisService.isConnected();
-      if (isConnected) {
-        const properties = await realRedisService.getAllProperties();
-        setRegisteredProperties(properties);
-        console.log(`📊 Loaded ${properties.length} properties from Redis`);
-      } else {
-        // Redis 연결 실패 시 Mock service 사용
-        const properties = await redisService.getAllProperties();
-        setRegisteredProperties(properties);
-        console.log(`📊 Loaded ${properties.length} properties from Mock Redis`);
-      }
+      const properties = await apiService.getAllProperties();
+      setRegisteredProperties(properties);
+      console.log(`📊 Loaded ${properties.length} properties from backend API`);
     } catch (error) {
-      console.error('Failed to load properties:', error);
+      console.error('❌ Failed to load properties from backend API:', error);
+      // 실패 시 빈 배열로 설정
+      setRegisteredProperties([]);
     }
   };
 
@@ -213,24 +212,17 @@ export function AdminPage() {
                       "/default-property.png";
       
       // 폼 데이터를 Property 객체로 변환
-      const property = realRedisService.convertFormToProperty(propertyForm, imageUrl);
+      const property = apiService.convertFormToProperty(propertyForm, imageUrl);
       
-      // 실제 Redis에 사건번호를 키로 저장
-      const isConnected = await realRedisService.isConnected();
-      if (isConnected) {
-        console.log(`💾 Saving to Redis with case number: ${property.caseNumber}`);
-        await realRedisService.savePropertyByCaseNumber(property);
-        console.log(`✅ Successfully saved to Redis localhost:6379 with key: case:${property.caseNumber}`);
-      } else {
-        // Redis 연결 실패 시 Mock service 사용
-        console.log('⚠️ Redis not connected, using Mock Redis');
-        await redisService.saveProperty(property);
-      }
+      // 백엔드 API에 저장
+      console.log(`💾 Saving to backend API: ${property.title}`);
+      await apiService.saveProperty(property);
+      console.log(`✅ Successfully saved to backend API with case number: ${property.caseNumber}`);
       
       // 등록된 속성 목록 새로고침
       await loadProperties();
       
-      alert(`Property registered successfully!\nSaved to Redis with case number: ${property.caseNumber}\nKey: case:${property.caseNumber}`);
+      alert(`Property registered successfully!\nSaved to backend API with case number: ${property.caseNumber}`);
       
       // Reset form and validation state
       const resetForm = {
@@ -965,10 +957,12 @@ export function AdminPage() {
               <div className="flex justify-between items-center">
                 <h2 className="avax-subheading text-2xl">Auction Management</h2>
                 <div className="flex items-center space-x-2 text-sm">
-                  <span className="text-erea-text-light">Redis Status:</span>
+                  <span className="text-erea-text-light">API Status:</span>
                   <div className="flex items-center space-x-1">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-green-600 font-semibold">localhost:6379</span>
+                    <div className={`w-2 h-2 rounded-full ${isRedisConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                    <span className={`font-semibold ${isRedisConnected ? 'text-green-600' : 'text-red-600'}`}>
+                      {isRedisConnected ? 'Connected' : 'Disconnected'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1034,7 +1028,7 @@ export function AdminPage() {
                               {property.caseNumber}
                             </div>
                             <div className="text-xs text-erea-text-light">
-                              Redis Key: case:{property.caseNumber}
+                              API ID: {property.id}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
