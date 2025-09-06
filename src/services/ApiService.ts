@@ -92,6 +92,23 @@ export class ApiService {
 
   // 프론트엔드 Property를 백엔드 형식으로 변환
   private convertToBackendProperty(property: Property): CreatePropertyRequest {
+    // 날짜를 ISO 8601 형식 (RFC3339)으로 변환
+    const formatDateForBackend = (dateString: string): string => {
+      if (!dateString) return new Date().toISOString();
+      
+      // datetime-local 형식 (YYYY-MM-DDTHH:mm)을 ISO 형식으로 변환
+      if (dateString.length === 16 && dateString.includes('T')) {
+        return new Date(dateString + ':00.000Z').toISOString();
+      }
+      
+      // 이미 올바른 형식인 경우 그대로 반환
+      try {
+        return new Date(dateString).toISOString();
+      } catch {
+        return new Date().toISOString();
+      }
+    };
+
     return {
       title: property.title,
       location: property.address || property.location,
@@ -101,7 +118,7 @@ export class ApiService {
       starting_price: property.minimumPrice || property.startingPrice,
       image_url: property.imageUrl || '',
       features: property.features || [],
-      end_date: property.auctionDate || property.endDate,
+      end_date: formatDateForBackend(property.auctionDate || property.endDate),
       owner_id: 'default-owner' // 기본 owner_id 설정
     };
   }
