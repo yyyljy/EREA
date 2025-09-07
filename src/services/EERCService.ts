@@ -40,6 +40,10 @@ interface EERCConfig {
     token_symbol: string;
     default_mint_amount: number;
   };
+  api: {
+    base_url: string;
+    zk_service_url: string;
+  };
 }
 
 // Standalone deployment interface
@@ -115,31 +119,57 @@ export class EERCService {
     return EERCService.instance;
   }
 
+  // Load configuration from environment variables
+  private loadConfigFromEnv(): EERCConfig {
+    return {
+      network: {
+        rpc_url: this.getEnvValue('VITE_NETWORK_RPC_URL', 'https://api.avax-test.network/ext/bc/C/rpc'),
+        chain_id: parseInt(this.getEnvValue('VITE_NETWORK_CHAIN_ID', '43113'))
+      },
+      contracts: {
+        encrypted_erc: this.getEnvValue('VITE_CONTRACTS_ENCRYPTED_ERC', '0x0926c211EEb1097E20D7560a1D92eA88260F7C44'),
+        registrar: this.getEnvValue('VITE_CONTRACTS_REGISTRAR', '0xD690D226472c80780e5c7A458eA3070351E299f4')
+      },
+      wallets: {
+        admin_private_key: this.getEnvValue('VITE_EREA_ADMIN_PRIVATE_KEY'),
+        user_private_key: this.getEnvValue('VITE_EREA_USER_PRIVATE_KEY')
+      },
+      eerc: {
+        token_decimals: parseInt(this.getEnvValue('VITE_EERC_TOKEN_DECIMALS', '2')),
+        token_symbol: this.getEnvValue('VITE_EERC_TOKEN_SYMBOL', 'eKRW'),
+        default_mint_amount: parseInt(this.getEnvValue('VITE_EERC_DEFAULT_MINT_AMOUNT', '5000'))
+      },
+      api: {
+        base_url: this.getEnvValue('VITE_EREA_API_BASE_URL', 'http://localhost:8000'),
+        zk_service_url: this.getEnvValue('VITE_EREA_ZK_SERVICE_URL', 'http://localhost:3001')
+      }
+    };
+  }
+
+  // Get environment variable with optional default value
+  private getEnvValue(key: string, defaultValue?: string): string {
+    const value = import.meta.env[key];
+    
+    if (value) {
+      console.log(`🔐 Using environment variable: ${key}`);
+      return value;
+    }
+    
+    if (defaultValue !== undefined) {
+      console.warn(`⚠️  Using default value for ${key} (consider setting in .env file)`);
+      return defaultValue;
+    }
+    
+    throw new Error(`Required environment variable not found: ${key}. Please set it in your .env file.`);
+  }
+
   // Initialize EERC service
   async initialize(): Promise<boolean> {
     try {
       console.log('🔧 Initializing EERC Service...');
       
-       // Load base configuration (browser-compatible)
-       this.config = {
-         network: {
-           rpc_url: "https://api.avax-test.network/ext/bc/C/rpc",
-           chain_id: 43113
-         },
-         contracts: {
-           encrypted_erc: "0x0926c211EEb1097E20D7560a1D92eA88260F7C44",
-           registrar: "0xD690D226472c80780e5c7A458eA3070351E299f4"
-         },
-        wallets: {
-          admin_private_key: "23fb502b089a34f618ec8c3470cdedd855eda820d127a5331efaf58c52ec2a30",
-          user_private_key: "896aaebcf9b58e6c9032e12ed758f199e549c363f21b125b20504da2e53107a8"
-        },
-        eerc: {
-          token_decimals: 2,
-          token_symbol: "eKRW",
-          default_mint_amount: 5000
-        }
-      };
+       // Load configuration from environment variables
+       this.config = this.loadConfigFromEnv();
       
       // For browser environment, skip file-based loading
       // Load standalone deployment information (mock data for demo)
@@ -413,6 +443,25 @@ export class EERCService {
       console.warn('⚠️ ZK proof generation not available in browser environment');
       console.log('💡 Frontend requires backend API for real ZK proof generation');
       
+      // Get required public keys for transfer
+      console.log('🔑 Getting user public key...');
+      const userPublicKey = await this.registrarContract!.getUserPublicKey(userAddress);
+      const userPublicKeyArray = [BigInt(userPublicKey[0].toString()), BigInt(userPublicKey[1].toString())];
+      console.log('🔑 User public key:', userPublicKeyArray.map(k => k.toString()));
+      
+      console.log('🔑 Getting admin public key...');
+      const adminPublicKey = await this.registrarContract!.getUserPublicKey(adminAddress);
+      const adminPublicKeyArray = [BigInt(adminPublicKey[0].toString()), BigInt(adminPublicKey[1].toString())];
+      console.log('🔑 Admin public key:', adminPublicKeyArray.map(k => k.toString()));
+      
+      console.log('🔑 Getting auditor public key...');
+      const auditorPublicKey = await this.encryptedERCContract!.auditorPublicKey();
+      const auditorPublicKeyArray = [BigInt(auditorPublicKey.x.toString()), BigInt(auditorPublicKey.y.toString())];
+      console.log('🔑 Auditor public key:', auditorPublicKeyArray.map(k => k.toString()));
+      
+      // Note: userPrivateKey would be needed for real ZK proof, but we're using backend API
+      const userPrivateKey = BigInt("0x" + "0".repeat(64)); // Placeholder - backend handles real keys
+      
       // For now, we should fail gracefully and guide user to proper solution
       // 이제 Go 백엔드의 EERC API를 사용하여 실제 전송
       console.log('🔗 Calling Go backend EERC transfer API...');
@@ -552,7 +601,7 @@ export class EERCService {
     message: string;
   }> {
     // ApiService import를 직접 하지 않고 fetch 사용
-    const response = await fetch('http://localhost:8000/api/v1/eerc/mint', {
+    const response = await fetch(`${this.config!.api.base_url}/api/v1/eerc/mint`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -586,7 +635,7 @@ export class EERCService {
     amount: number;
     message: string;
   }> {
-    const response = await fetch('http://localhost:8000/api/v1/eerc/transfer', {
+    const response = await fetch(`${this.config!.api.base_url}/api/v1/eerc/transfer`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
