@@ -1,5 +1,17 @@
 import { PropertyRegistrationForm } from '../types/Property';
 
+// 사용 가능한 이미지 목록 (logo.png 제외)
+const availableImages = [
+  '/Bundang_New_Town_Apartment_Complex.png',
+  '/Gangnam_District_Premium_Officetel.png',
+  '/Jeju_Island_Villa.png'
+];
+
+// 랜덤 이미지 선택 함수
+const getRandomImage = (): string => {
+  return availableImages[Math.floor(Math.random() * availableImages.length)];
+};
+
 // 더미 데이터 템플릿들
 export const dummyDataTemplates: PropertyRegistrationForm[] = [
   // 강남 오피스텔
@@ -190,6 +202,20 @@ export const getDummyDataTemplate = (index: number): PropertyRegistrationForm =>
     return dummyDataTemplates[0];
   }
   return { ...dummyDataTemplates[index] };
+};
+
+// 랜덤 이미지를 포함한 더미 데이터 생성 (AdminPage에서 사용)
+export const generateRandomDummyDataWithImage = (): { data: PropertyRegistrationForm; imageUrl: string } => {
+  const data = generateRandomDummyData();
+  const imageUrl = getRandomImage();
+  return { data, imageUrl };
+};
+
+// 특정 템플릿 + 랜덤 이미지 (AdminPage에서 사용)
+export const getDummyDataTemplateWithImage = (index: number): { data: PropertyRegistrationForm; imageUrl: string } => {
+  const data = getDummyDataTemplate(index);
+  const imageUrl = getRandomImage();
+  return { data, imageUrl };
 };
 
 // 템플릿 이름들

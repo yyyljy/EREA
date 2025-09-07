@@ -2,7 +2,14 @@ import { useState, useEffect } from "react";
 import { Property, PropertyRegistrationForm } from '../types/Property';
 import { apiService } from '../services/ApiService';
 import { validatePropertyForm, validateField } from '../utils/validation';
-import { generateRandomDummyData, getDummyDataTemplate, dummyDataTemplateNames } from '../utils/dummyData';
+import { generateRandomDummyDataWithImage, getDummyDataTemplateWithImage, dummyDataTemplateNames } from '../utils/dummyData';
+
+// 사용 가능한 이미지 목록 (logo.png 제외)
+const AVAILABLE_IMAGES = [
+  '/Bundang_New_Town_Apartment_Complex.png',
+  '/Gangnam_District_Premium_Officetel.png',
+  '/Jeju_Island_Villa.png'
+];
 
 // interface AuctionManagement {
 //   propertyId: string;
@@ -212,13 +219,12 @@ export function AdminPage() {
     setIsLoading(true);
     
     try {
-      // 기본 이미지 URL 설정 (실제로는 파일 업로드 로직이 들어갈 부분)
-      const imageUrl = propertyForm.propertyType === "Apartment" ? "/Bundang_New_Town_Apartment_Complex.png" :
-                      propertyForm.propertyType === "Commercial Facility" ? "/Gangnam_District_Premium_Officetel.png" :
-                      "/default-property.png";
+      // 랜덤 이미지 URL 설정
+      const imageUrl = AVAILABLE_IMAGES[Math.floor(Math.random() * AVAILABLE_IMAGES.length)];
       
       // 폼 데이터를 Property 객체로 변환
       console.log('🔄 Property 객체 변환 중...');
+      console.log(`🖼️ Using random image: ${imageUrl}`);
       const property = apiService.convertFormToProperty(propertyForm, imageUrl);
       console.log('📄 변환된 Property 객체:', property);
       
@@ -277,20 +283,23 @@ export function AdminPage() {
 
   // 더미 데이터 채우기 함수
   const fillDummyData = (templateIndex?: number) => {
-    let dummyData: PropertyRegistrationForm;
+    let result: { data: PropertyRegistrationForm; imageUrl: string };
     
     if (templateIndex !== undefined) {
-      dummyData = getDummyDataTemplate(templateIndex);
+      result = getDummyDataTemplateWithImage(templateIndex);
     } else {
-      dummyData = generateRandomDummyData();
+      result = generateRandomDummyDataWithImage();
     }
     
-    setPropertyForm(dummyData);
+    setPropertyForm(result.data);
     
     // 더미 데이터 채운 후 검증 실행 (새로운 데이터로 즉시 검증)
     setHasAttemptedSubmit(true);
     // 새로운 dummyData를 직접 전달하여 검증
-    validateForm(dummyData);
+    validateForm(result.data);
+    
+    // 콘솔에 선택된 이미지 정보 출력 (개발용)
+    console.log(`🖼️ Selected image for dummy data: ${result.imageUrl}`);
   };
 
   // Error display component
