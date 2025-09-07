@@ -29,15 +29,13 @@ export function App() {
 	const [showDemoModal, setShowDemoModal] = useState(false);
 
 	useEffect(() => {
-		// Check if user has seen the demo modal before
-		const hasSeenDemoModal = localStorage.getItem('erea-demo-modal-seen');
-		if (!hasSeenDemoModal) {
-			setShowDemoModal(true);
-		}
+		// Always show demo modal on first visit to make it clear this is a demo
+		setShowDemoModal(true);
 	}, []);
 
 	const closeDemoModal = () => {
 		setShowDemoModal(false);
+		// Set localStorage to remember user has seen the demo modal
 		localStorage.setItem('erea-demo-modal-seen', 'true');
 	};
 
@@ -167,8 +165,8 @@ export function App() {
 
 			{/* Demo Site Modal */}
 			{showDemoModal && (
-				<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-					<div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+				<div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+					<div className="bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 transform transition-all duration-300">
 						<div className="p-6">
 							{/* Modal Header */}
 							<div className="flex items-center justify-center mb-4">
@@ -181,11 +179,11 @@ export function App() {
 							
 							{/* Modal Content */}
 							<div className="text-center">
-								<h3 className="text-lg font-semibold text-gray-900 mb-4">
-									Demo Site Notice
+								<h3 className="text-xl font-bold text-gray-900 mb-6">
+									🚀 EREA Demo Site Notice
 								</h3>
 								<p className="text-gray-600 mb-6 leading-relaxed">
-									The EREA (Encrypted Real Estate Auction) platform you are currently viewing is a 
+									The <strong className="text-erea-primary">EREA (Encrypted Real Estate Auction)</strong> platform you are currently viewing is a 
 									<strong className="text-orange-600"> demo site</strong>.
 									<br /><br />
 									All real estate information, auction data, and user information consists of 
@@ -193,23 +191,31 @@ export function App() {
 								</p>
 								
 								{/* Demo Features Notice */}
-								<div className="bg-gray-50 rounded-lg p-4 mb-6">
+								<div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-6 border border-blue-200">
 									<p className="text-sm text-gray-700">
-										<strong>Demo Features:</strong><br />
-										• Virtual real estate auction listings<br />
-										• Simulated bidding processes<br />
-										• Test admin/user interfaces
+										<strong className="text-erea-primary">🎯 Demo Features:</strong><br />
+										• 🏠 Virtual real estate auction listings<br />
+										• 💰 Simulated bidding processes<br />
+										• 🔧 Admin/user interface testing<br />
+										• 🔐 EERC20 token transaction simulation
+									</p>
+								</div>
+								
+								{/* Additional Notice */}
+								<div className="bg-yellow-50 rounded-lg p-3 mb-6 border border-yellow-200">
+									<p className="text-xs text-yellow-800">
+										⚠️ For actual auction participation or real estate transactions, please use the official service.
 									</p>
 								</div>
 							</div>
 							
 							{/* Modal Actions */}
-							<div className="flex justify-center">
+							<div className="flex justify-center space-x-3">
 								<button
 									onClick={closeDemoModal}
-									className="bg-erea-primary hover:bg-erea-primary-dark text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
+									className="bg-erea-primary hover:bg-erea-primary-dark text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 shadow-lg"
 								>
-									I Understand
+									✅ I Understand
 								</button>
 							</div>
 						</div>
