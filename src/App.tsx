@@ -4,11 +4,8 @@ import { Suspense, lazy, useState, useEffect } from "react";
 const RealEstateAuction = lazy(() =>
 	import("./pages/RealEstateAuction").then((module) => ({ default: module.RealEstateAuction })),
 );
-const About = lazy(() =>
-	import("./pages/About").then((module) => ({ default: module.About })),
-);
-const EERCDashboard = lazy(() =>
-	import("./pages/EERCDashboard").then((module) => ({ default: module.EERCDashboard })),
+const MonitoringDashboard = lazy(() =>
+	import("./pages/Monitoring").then((module) => ({ default: module.MonitoringDashboard })),
 );
 const AdminPage = lazy(() =>
 	import("./pages/AdminPage").then((module) => ({ default: module.AdminPage })),
@@ -118,16 +115,6 @@ export function App() {
 								Bidder
 							</button>
 							<button
-								onClick={() => setSelectedPage("about")}
-								className={`px-4 py-2 rounded-md font-semibold transition-all duration-200 text-xs uppercase tracking-wide ${
-									selectedPage === "about"
-										? "bg-white text-erea-primary shadow-md"
-										: "text-white hover:bg-white/10 border border-white/30"
-								}`}
-							>
-								About
-							</button>
-							<button
 								onClick={() => setSelectedPage("eerc")}
 								className={`px-4 py-2 rounded-md font-semibold transition-all duration-200 text-xs uppercase tracking-wide ${
 									selectedPage === "eerc"
@@ -135,7 +122,7 @@ export function App() {
 										: "text-white hover:bg-white/10 border border-white/30"
 								}`}
 							>
-								EERC Dashboard
+								Monitoring
 							</button>
 						</nav>
 					</div>
@@ -152,8 +139,8 @@ export function App() {
 							{selectedPage === "auction" ? "Real Estate Auction" : 
 							 selectedPage === "admin" ? "Admin Dashboard" :
 							 selectedPage === "resident" ? "Resident Portal" :
-							 selectedPage === "bidder" ? "Bidder Portal" :
-							 selectedPage === "about" ? "About" : "EERC Dashboard"}
+							selectedPage === "bidder" ? "Bidder Portal" :
+							"Monitoring Dashboard"}
 						</span>
 					</nav>
 				</div>
@@ -164,17 +151,15 @@ export function App() {
 				<div className="avax-card p-8">
 					<Suspense fallback={<LoadingFallback />}>
 						{selectedPage === "auction" ? (
-							<RealEstateAuction />
+							<RealEstateAuction onNavigateTo={setSelectedPage} />
 						) : selectedPage === "admin" ? (
 							<AdminPage />
 						) : selectedPage === "resident" ? (
 							<ResidentPage />
 						) : selectedPage === "bidder" ? (
 							<BidderPage />
-						) : selectedPage === "eerc" ? (
-							<EERCDashboard />
 						) : (
-							<About />
+							<MonitoringDashboard />
 						)}
 					</Suspense>
 				</div>

@@ -124,9 +124,12 @@ const mockProperties: Property[] = [
   }
 ];
 
-export function RealEstateAuction() {
+interface RealEstateAuctionProps {
+  onNavigateTo: (page: "bidder" | "auction" | "eerc" | "admin" | "resident") => void;
+}
+
+export function RealEstateAuction({ onNavigateTo }: RealEstateAuctionProps) {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
-  const [bidAmount, setBidAmount] = useState<string>("");
   const [filterStatus, setFilterStatus] = useState<"All" | "Active" | "Closed" | "Pending">("All");
   const [properties, setProperties] = useState<Property[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -182,14 +185,6 @@ export function RealEstateAuction() {
 
   // Mock data is now only used as fallback when backend API is unavailable
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(price / 1300); // Approximate KRW to USD conversion
-  };
 
   const formatPriceKRW = (price: number) => {
     return new Intl.NumberFormat('ko-KR', {
@@ -218,19 +213,6 @@ export function RealEstateAuction() {
     ? properties 
     : properties.filter(p => p.status === filterStatus);
 
-  const placeBid = () => {
-    if (!selectedProperty || !bidAmount) return;
-    
-    const bidValue = parseFloat(bidAmount) * 1300; // Convert USD to KRW
-    if (bidValue <= selectedProperty.currentPrice) {
-      alert("Bid must be higher than current price");
-      return;
-    }
-
-    alert(`Bid placed successfully for ${formatPrice(bidValue)}! Your bid will be processed securely on the Avalanche blockchain.`);
-    setBidAmount("");
-    setSelectedProperty(null);
-  };
 
   return (
     <div className="space-y-8">
@@ -514,39 +496,49 @@ export function RealEstateAuction() {
                 </div>
               </div>
 
-              {/* Bidding Section */}
+              {/* Navigation Section */}
               {selectedProperty.status === "Active" && (
                 <div className="border-t border-avax-border pt-6">
-                  <h3 className="avax-subheading text-lg mb-4">Encrypted Bidding</h3>
-                  <div className="avax-card p-6 bg-blue-50 border-l-4 border-avax-red">
+                  <h3 className="avax-subheading text-lg mb-4">Auction Actions</h3>
+                  <div className="avax-card p-6 bg-blue-50 border-l-4 border-erea-primary">
                     <div className="mb-4">
-                      <div className="text-center mb-4">
+                      <div className="text-center mb-6">
                         <div className="text-sm text-avax-gray">Time Remaining</div>
                         <div className="text-2xl font-bold text-avax-red">
                           {getTimeRemaining(selectedProperty.endDate)}
                         </div>
                       </div>
                       
-                      <label className="block avax-subheading text-sm mb-2">
-                        Bid Amount (KRW)
-                      </label>
-                      <input
-                        type="number"
-                        value={bidAmount}
-                        onChange={(e) => setBidAmount(e.target.value)}
-                        placeholder={`Minimum bid: ${formatPriceKRW(selectedProperty.minimumPrice)}`}
-                        className="avax-input w-full mb-4"
-                      />
-                      <button
-                        onClick={placeBid}
-                        className="w-full avax-button-primary"
-                        disabled={!bidAmount || parseFloat(bidAmount) < selectedProperty.minimumPrice}
-                      >
-                        Submit Encrypted Bid
-                      </button>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button
+                          onClick={() => {
+                            setSelectedProperty(null);
+                            onNavigateTo("bidder");
+                          }}
+                          className="avax-button-outline"
+                        >
+                          <div className="flex items-center justify-center space-x-2">
+                            <span>💰</span>
+                            <span>Manage Deposit</span>
+                          </div>
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            setSelectedProperty(null);
+                            onNavigateTo("bidder");
+                          }}
+                          className="avax-button-primary"
+                        >
+                          <div className="flex items-center justify-center space-x-2">
+                            <span>🏠</span>
+                            <span>Place Bid</span>
+                          </div>
+                        </button>
+                      </div>
                     </div>
                     <p className="text-xs text-erea-text-light text-center">
-                      All bids are encrypted and securely processed on the Avalanche blockchain
+                      Please complete your deposit first, then proceed with encrypted bidding
                     </p>
                   </div>
                 </div>

@@ -44,6 +44,50 @@ interface CreatePropertyRequest {
   owner_id: string;
 }
 
+// 백엔드 Deposit 모델
+interface BackendDeposit {
+  id: string;
+  property_id: string;
+  user_id: string;
+  amount: number;
+  token_type: string;
+  tx_hash: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// 백엔드 Deposit 생성 요청 타입
+interface CreateDepositRequest {
+  property_id: string;
+  user_id: string;
+  amount: number;
+  token_type: string;
+}
+
+// 백엔드 Bid 모델
+interface BackendBid {
+  id: string;
+  property_id: string;
+  bidder_id: string;
+  amount: number;
+  tx_hash: string;
+  status: string;
+  is_encrypted: boolean;
+  encrypted_data?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// 백엔드 Bid 생성 요청 타입
+interface CreateBidRequest {
+  property_id: string;
+  bidder_id: string;
+  amount: number;
+  is_encrypted: boolean;
+  encrypted_data?: string;
+}
+
 // 백엔드 API 서비스 클래스
 export class ApiService {
   private static instance: ApiService;
@@ -360,6 +404,273 @@ export class ApiService {
     } catch (error) {
       console.error('❌ Health check failed:', error);
       return { status: 'unhealthy', message: 'API server is not responding' };
+    }
+  }
+
+  // Deposit 관련 메서드들
+
+  // 보증금 납부
+  async createDeposit(propertyId: string, userId: string, amount: number, tokenType: string = 'wKRW'): Promise<BackendDeposit> {
+    try {
+      console.log(`💰 Creating deposit for property ${propertyId}, amount: ${amount}...`);
+      const depositRequest: CreateDepositRequest = {
+        property_id: propertyId,
+        user_id: userId,
+        amount: amount,
+        token_type: tokenType
+      };
+      
+      const response = await this.request<BackendDeposit>('/deposits/', {
+        method: 'POST',
+        body: JSON.stringify(depositRequest)
+      });
+      
+      if (response.success && response.data) {
+        console.log(`✅ Deposit created successfully:`, response.data);
+        return response.data;
+      } else {
+        throw new Error(response.error || 'Failed to create deposit');
+      }
+    } catch (error) {
+      console.error('❌ Failed to create deposit:', error);
+      throw error;
+    }
+  }
+
+  // 사용자별 보증금 조회
+  async getUserDeposits(userId: string): Promise<BackendDeposit[]> {
+    try {
+      console.log(`🔍 Fetching deposits for user ${userId}...`);
+      const response = await this.request<BackendDeposit[]>(`/deposits/user/${userId}`);
+      
+      if (response.success && response.data) {
+        console.log(`✅ Loaded ${response.data.length} deposits for user ${userId}`);
+        return response.data;
+      }
+      
+      return [];
+    } catch (error) {
+      console.error(`❌ Failed to fetch deposits for user ${userId}:`, error);
+      throw error;
+    }
+  }
+
+  // 모든 보증금 조회
+  async getAllDeposits(): Promise<BackendDeposit[]> {
+    try {
+      console.log('🔍 Fetching all deposits...');
+      const response = await this.request<BackendDeposit[]>('/deposits/');
+      
+      if (response.success && response.data) {
+        console.log(`✅ Loaded ${response.data.length} total deposits`);
+        return response.data;
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('❌ Failed to fetch all deposits:', error);
+      throw error;
+    }
+  }
+
+  // 특정 보증금 조회
+  async getDeposit(depositId: string): Promise<BackendDeposit | null> {
+    try {
+      console.log(`🔍 Fetching deposit ${depositId}...`);
+      const response = await this.request<BackendDeposit>(`/deposits/${depositId}`);
+      
+      if (response.success && response.data) {
+        console.log(`✅ Deposit ${depositId} loaded`);
+        return response.data;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error(`❌ Failed to fetch deposit ${depositId}:`, error);
+      return null;
+    }
+  }
+
+  // 보증금 상태 업데이트
+  async updateDepositStatus(depositId: string, status: string, txHash?: string): Promise<void> {
+    try {
+      console.log(`🔄 Updating deposit ${depositId} status to ${status}...`);
+      const updateRequest: any = { status };
+      if (txHash) {
+        updateRequest.tx_hash = txHash;
+      }
+      
+      const response = await this.request(`/deposits/${depositId}/status`, {
+        method: 'PUT',
+        body: JSON.stringify(updateRequest)
+      });
+      
+      if (response.success) {
+        console.log(`✅ Deposit ${depositId} status updated to ${status}`);
+      } else {
+        throw new Error(response.error || 'Failed to update deposit status');
+      }
+    } catch (error) {
+      console.error(`❌ Failed to update deposit ${depositId} status:`, error);
+      throw error;
+    }
+  }
+
+  // Bid 관련 메서드들
+
+  // 입찰 생성
+  async createBid(propertyId: string, bidderId: string, amount: number, isEncrypted: boolean = true, encryptedData?: string): Promise<BackendBid> {
+    try {
+      console.log(`📝 Creating bid for property ${propertyId}, amount: ${amount}...`);
+      const bidRequest: CreateBidRequest = {
+        property_id: propertyId,
+        bidder_id: bidderId,
+        amount: amount,
+        is_encrypted: isEncrypted,
+        encrypted_data: encryptedData
+      };
+      
+      const response = await this.request<BackendBid>('/bids/', {
+        method: 'POST',
+        body: JSON.stringify(bidRequest)
+      });
+      
+      if (response.success && response.data) {
+        console.log(`✅ Bid created successfully:`, response.data);
+        return response.data;
+      } else {
+        throw new Error(response.error || 'Failed to create bid');
+      }
+    } catch (error) {
+      console.error('❌ Failed to create bid:', error);
+      throw error;
+    }
+  }
+
+  // 사용자별 입찰 조회
+  async getUserBids(userId: string): Promise<BackendBid[]> {
+    try {
+      console.log(`🔍 Fetching bids for user ${userId}...`);
+      const response = await this.request<BackendBid[]>(`/users/${userId}/bids`);
+      
+      if (response.success && response.data) {
+        console.log(`✅ Loaded ${response.data.length} bids for user ${userId}`);
+        return response.data;
+      }
+      
+      return [];
+    } catch (error) {
+      console.error(`❌ Failed to fetch bids for user ${userId}:`, error);
+      throw error;
+    }
+  }
+
+  // 상위 입찰 조회
+  async getTopBids(limit?: number): Promise<BackendBid[]> {
+    try {
+      console.log('🔍 Fetching top bids...');
+      const url = limit ? `/bids/?limit=${limit}` : '/bids/';
+      const response = await this.request<BackendBid[]>(url);
+      
+      if (response.success && response.data) {
+        console.log(`✅ Loaded ${response.data.length} top bids`);
+        return response.data;
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('❌ Failed to fetch top bids:', error);
+      throw error;
+    }
+  }
+
+  // 특정 입찰 조회
+  async getBid(bidId: string): Promise<BackendBid | null> {
+    try {
+      console.log(`🔍 Fetching bid ${bidId}...`);
+      const response = await this.request<BackendBid>(`/bids/${bidId}`);
+      
+      if (response.success && response.data) {
+        console.log(`✅ Bid ${bidId} loaded`);
+        return response.data;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error(`❌ Failed to fetch bid ${bidId}:`, error);
+      return null;
+    }
+  }
+
+  // 입찰 상태 업데이트
+  async updateBidStatus(bidId: string, status: string): Promise<void> {
+    try {
+      console.log(`🔄 Updating bid ${bidId} status to ${status}...`);
+      const updateRequest = { status };
+      
+      const response = await this.request(`/bids/${bidId}/status`, {
+        method: 'PUT',
+        body: JSON.stringify(updateRequest)
+      });
+      
+      if (response.success) {
+        console.log(`✅ Bid ${bidId} status updated to ${status}`);
+      } else {
+        throw new Error(response.error || 'Failed to update bid status');
+      }
+    } catch (error) {
+      console.error(`❌ Failed to update bid ${bidId} status:`, error);
+      throw error;
+    }
+  }
+
+  // 모든 입찰 조회 (AdminPage용)
+  async getAllBids(): Promise<BackendBid[]> {
+    try {
+      console.log('🔍 Fetching all bids...');
+      const response = await this.request<BackendBid[]>('/bids/');
+      
+      if (response.success && response.data) {
+        console.log(`✅ Loaded ${response.data.length} total bids`);
+        return response.data;
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('❌ Failed to fetch all bids:', error);
+      throw error;
+    }
+  }
+
+  // 특정 property의 입찰 조회
+  async getPropertyBids(propertyId: string): Promise<BackendBid[]> {
+    try {
+      console.log(`🔍 Fetching bids for property ${propertyId}...`);
+      const url = `/properties/${propertyId}/bids`;
+      console.log(`🌐 API URL: ${API_BASE_URL}${url}`);
+      
+      // BidHistory 객체를 반환하는 API 응답 타입 정의
+      interface BidHistoryResponse {
+        property_id: string;
+        bid_count: number;
+        highest_bid: number;
+        latest_bidder: string;
+        bids: BackendBid[];
+      }
+      
+      const response = await this.request<BidHistoryResponse>(url);
+      console.log(`📡 API Response:`, response);
+      
+      if (response.success && response.data && response.data.bids) {
+        console.log(`✅ Loaded ${response.data.bids.length} bids for property ${propertyId}:`, response.data.bids);
+        return response.data.bids;
+      } else {
+        console.log(`⚠️ API response indicates failure or no bids:`, response);
+        return [];
+      }
+    } catch (error) {
+      console.error(`❌ Failed to fetch bids for property ${propertyId}:`, error);
+      throw error;
     }
   }
 }

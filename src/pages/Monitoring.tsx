@@ -62,8 +62,8 @@ const mockAssets: EERCAsset[] = [
   },
 ];
 
-export function EERCDashboard() {
-  const [activeTab, setActiveTab] = useState<"overview" | "transactions" | "assets" | "analytics">("overview");
+export function MonitoringDashboard() {
+  const [activeTab, setActiveTab] = useState<"platform" | "overview" | "transactions" | "assets" | "analytics">("platform");
   const [isConnected, setIsConnected] = useState(false);
 
   const formatPrice = (price: number) => {
@@ -89,10 +89,10 @@ export function EERCDashboard() {
       {/* Header */}
       <div className="text-center">
         <h1 className="avax-heading text-4xl mb-4">
-          EERC Dashboard
+          Monitoring Dashboard
         </h1>
         <p className="avax-body text-lg max-w-4xl mx-auto">
-          Manage your encrypted real estate assets and monitor blockchain transactions 
+          Monitor platform performance, track system analytics, and manage encrypted real estate assets 
           securely through the Avalanche EERC protocol.
         </p>
       </div>
@@ -139,10 +139,11 @@ export function EERCDashboard() {
         <div className="border-b border-avax-border">
           <nav className="flex space-x-1 p-1">
             {[
-              { key: "overview", label: "Overview" },
+              { key: "platform", label: "Platform Analytics" },
+              { key: "overview", label: "Portfolio Overview" },
               { key: "transactions", label: "Transactions" },
               { key: "assets", label: "My Assets" },
-              { key: "analytics", label: "Analytics" }
+              { key: "analytics", label: "EERC Analytics" }
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -160,10 +161,74 @@ export function EERCDashboard() {
         </div>
 
         <div className="p-8">
-          {/* Overview Tab */}
+          {/* Platform Analytics Tab */}
+          {activeTab === "platform" && (
+            <div className="space-y-6">
+              <h2 className="avax-subheading text-2xl">Platform Analytics</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="avax-card p-6 text-center">
+                  <div className="text-3xl font-bold text-erea-primary">$4.2M</div>
+                  <div className="text-erea-text-light font-semibold">Total Transaction Value</div>
+                </div>
+                <div className="avax-card p-6 text-center">
+                  <div className="text-3xl font-bold text-avax-success">156</div>
+                  <div className="text-erea-text-light font-semibold">Registered Users</div>
+                </div>
+                <div className="avax-card p-6 text-center">
+                  <div className="text-3xl font-bold text-avax-accent">98%</div>
+                  <div className="text-erea-text-light font-semibold">Success Rate</div>
+                </div>
+                <div className="avax-card p-6 text-center">
+                  <div className="text-3xl font-bold text-avax-warning">24</div>
+                  <div className="text-erea-text-light font-semibold">Active Properties</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="avax-card p-6">
+                  <h3 className="avax-subheading text-lg mb-4">Recent Platform Activity</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center border-b border-avax-border pb-2">
+                      <span className="text-sm">New property registered</span>
+                      <span className="text-xs text-erea-text-light">2 hours ago</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-avax-border pb-2">
+                      <span className="text-sm">Resident verification approved</span>
+                      <span className="text-xs text-erea-text-light">4 hours ago</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-avax-border pb-2">
+                      <span className="text-sm">Auction completed successfully</span>
+                      <span className="text-xs text-erea-text-light">1 day ago</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="avax-card p-6">
+                  <h3 className="avax-subheading text-lg mb-4">System Status</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">Avalanche Network</span>
+                      <span className="text-xs bg-avax-success text-white px-2 py-1 rounded-full">Healthy</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">EERC Protocol</span>
+                      <span className="text-xs bg-avax-success text-white px-2 py-1 rounded-full">Online</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">Database</span>
+                      <span className="text-xs bg-avax-success text-white px-2 py-1 rounded-full">Operational</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Portfolio Overview Tab */}
           {activeTab === "overview" && (
             <div className="space-y-6">
-              <h2 className="avax-subheading text-2xl">Portfolio Overview</h2>
+              <h2 className="avax-subheading text-2xl">User Portfolio Overview</h2>
               
               {/* Stats Grid */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -353,10 +418,10 @@ export function EERCDashboard() {
             </div>
           )}
 
-          {/* Analytics Tab */}
+          {/* EERC Analytics Tab */}
           {activeTab === "analytics" && (
             <div className="space-y-6">
-              <h2 className="avax-subheading text-2xl">Portfolio Analytics</h2>
+              <h2 className="avax-subheading text-2xl">EERC Protocol Analytics</h2>
               
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="avax-card p-6">

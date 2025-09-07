@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { apiService } from '../services/ApiService';
+import { Property as PropertyType } from '../types/Property';
 
-interface Property {
+// API에서 받아온 Property 타입을 BidderPage용으로 매핑하는 인터페이스
+interface BidderProperty {
   id: string;
   title: string;
   location: string;
@@ -44,87 +47,136 @@ interface PropertyDelivery {
 
 export function BidderPage() {
   const [activeTab, setActiveTab] = useState<"browse" | "deposit" | "bid" | "payment" | "history">("browse");
-  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [selectedProperty, setSelectedProperty] = useState<BidderProperty | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isApiConnected, setIsApiConnected] = useState(false);
+
+  // User ID (실제 앱에서는 인증 시스템에서 가져와야 함)
+  const [currentUserId] = useState<string>('user_demo_bidder_001');
 
   // Deposit Form State
   const [depositAmount, setDepositAmount] = useState<string>("");
-  const [selectedTokenType, setSelectedTokenType] = useState<"wKRW" | "EERC20">("wKRW");
   
   // Bidding Form State
   const [bidAmount, setBidAmount] = useState<string>("");
-  const [bidType, setBidType] = useState<"Sealed" | "Open">("Sealed");
   
   // Payment Form State
   const [paymentAmount, setPaymentAmount] = useState<string>("");
 
-  // Mock Data
-  const [availableProperties] = useState<Property[]>([
-    {
-      id: "1",
-      title: "Seoul Gangnam Premium Officetel",
-      location: "Seoul Gangnam-gu Sinsa-dong 183, 2F-101",
-      minimumPrice: 1346000000,
-      bidDeposit: 134600000,
-      auctionDate: "2025-02-15T10:00:00",
-      caseNumber: "2025Ta-Auction3170",
-      court: "Seoul Central District Court",
-      status: "Active",
-      imageUrl: "/Gangnam_District_Premium_Officetel.png",
-      area: 45.2,
-      type: "Commercial Facility"
-    },
-    {
-      id: "2",
-      title: "Bundang New Town Apartment",
-      location: "Gyeonggi Seongnam Bundang-gu Jeongja-dong 178-1, Unit 567",
-      minimumPrice: 520000000,
-      bidDeposit: 52000000,
-      auctionDate: "2025-02-20T14:00:00",
-      caseNumber: "2024Ta-Auction4521",
-      court: "Suwon District Court Seongnam Branch",
-      status: "Active",
-      imageUrl: "/Bundang_New_Town_Apartment_Complex.png",
-      area: 84.3,
-      type: "Residential Complex"
-    },
-    {
-      id: "3",
-      title: "Jeju Seogwipo Detached House",
-      location: "Jeju Seogwipo-si Daejeong-eup Hamori 1234-5",
-      minimumPrice: 380000000,
-      bidDeposit: 38000000,
-      auctionDate: "2025-02-25T16:00:00",
-      caseNumber: "2024Ta-Auction2890",
-      court: "Jeju District Court",
-      status: "Active",
-      imageUrl: "/Jeju_Island_Villa.png",
-      area: 150.5,
-      type: "Detached House"
-    }
-  ]);
+  // API에서 받아온 Property 데이터
+  const [availableProperties, setAvailableProperties] = useState<BidderProperty[]>([]);
 
-  const [depositTransactions, setDepositTransactions] = useState<DepositTransaction[]>([
-    {
-      propertyId: "1",
-      amount: 134600000,
-      tokenType: "wKRW",
-      status: "Confirmed",
-      txHash: "0x1a2b3c4d5e6f7890abcdef1234567890abcdef12",
-      timestamp: "2025-01-15T14:30:00"
-    }
-  ]);
+  // API Property를 BidderProperty로 변환하는 함수
+  const convertToBidderProperty = (property: PropertyType): BidderProperty => {
+    return {
+      id: property.id,
+      title: property.title,
+      location: property.address || property.location,
+      minimumPrice: property.minimumPrice,
+      bidDeposit: property.bidDeposit,
+      auctionDate: property.auctionDate,
+      caseNumber: property.caseNumber,
+      court: property.court,
+      status: property.status as "Active" | "Pending" | "Closed",
+      imageUrl: property.imageUrl,
+      area: property.area,
+      type: property.propertyType || property.type
+    };
+  };
 
-  const [bidSubmissions, setBidSubmissions] = useState<BidSubmission[]>([
-    {
-      propertyId: "1",
-      bidAmount: 1400000000,
-      depositConfirmed: true,
-      bidType: "Sealed",
-      submissionTime: "2025-01-16T10:00:00",
-      status: "Submitted"
+  // API 연결 및 데이터 로드
+  useEffect(() => {
+    initializeApiConnection();
+  }, []);
+
+  // deposit 데이터를 API에서 로드하는 함수
+  const loadDepositTransactions = async () => {
+    try {
+      console.log('🔍 BidderPage: Loading deposit transactions from API...');
+      const deposits = await apiService.getUserDeposits(currentUserId);
+      
+      // BackendDeposit을 DepositTransaction으로 변환
+      const depositTransactions: DepositTransaction[] = deposits.map(deposit => ({
+        propertyId: deposit.property_id,
+        amount: deposit.amount,
+        tokenType: deposit.token_type as "wKRW" | "EERC20",
+        status: deposit.status as "Pending" | "Confirmed" | "Failed",
+        txHash: deposit.tx_hash,
+        timestamp: deposit.created_at
+      }));
+      
+      setDepositTransactions(depositTransactions);
+      console.log(`📊 BidderPage: Loaded ${depositTransactions.length} deposit transactions`);
+    } catch (error) {
+      console.error('❌ BidderPage: Failed to load deposit transactions:', error);
+      // 실패 시 빈 배열로 설정
+      setDepositTransactions([]);
     }
-  ]);
+  };
+
+  // bid 데이터를 API에서 로드하는 함수
+  const loadBidSubmissions = async () => {
+    try {
+      console.log('🔍 BidderPage: Loading bid submissions from API...');
+      const bids = await apiService.getUserBids(currentUserId);
+      
+      // BackendBid를 BidSubmission으로 변환
+      const bidSubmissions: BidSubmission[] = bids.map(bid => ({
+        propertyId: bid.property_id,
+        bidAmount: bid.amount,
+        depositConfirmed: true, // API에서 받은 bid는 이미 deposit이 확인된 상태
+        bidType: bid.is_encrypted ? "Sealed" : "Open",
+        submissionTime: bid.created_at,
+        status: bid.status as "Draft" | "Submitted" | "Confirmed"
+      }));
+      
+      setBidSubmissions(bidSubmissions);
+      console.log(`📊 BidderPage: Loaded ${bidSubmissions.length} bid submissions`);
+    } catch (error) {
+      console.error('❌ BidderPage: Failed to load bid submissions:', error);
+      // 실패 시 빈 배열로 설정
+      setBidSubmissions([]);
+    }
+  };
+
+  const initializeApiConnection = async () => {
+    try {
+      const isConnected = await apiService.isConnected();
+      if (isConnected) {
+        const healthCheck = await apiService.healthCheck();
+        console.log('✅ BidderPage: Connected to backend API:', healthCheck.message);
+        setIsApiConnected(true);
+        await Promise.all([loadProperties(), loadDepositTransactions(), loadBidSubmissions()]);
+      } else {
+        throw new Error('API server is not responding');
+      }
+    } catch (error) {
+      console.error('❌ BidderPage: Failed to connect to backend API:', error);
+      setIsApiConnected(false);
+      await Promise.all([loadProperties(), loadDepositTransactions(), loadBidSubmissions()]); // 실패해도 로드 시도
+    }
+  };
+
+  const loadProperties = async () => {
+    setIsLoading(true);
+    try {
+      console.log('🔍 BidderPage: Loading properties from API...');
+      const properties = await apiService.getAllProperties();
+      const bidderProperties = properties.map(convertToBidderProperty);
+      setAvailableProperties(bidderProperties);
+      console.log(`📊 BidderPage: Loaded ${bidderProperties.length} properties`);
+    } catch (error) {
+      console.error('❌ BidderPage: Failed to load properties:', error);
+      // 실패 시 빈 배열로 설정
+      setAvailableProperties([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const [depositTransactions, setDepositTransactions] = useState<DepositTransaction[]>([]);
+
+  const [bidSubmissions, setBidSubmissions] = useState<BidSubmission[]>([]);
 
   const [deliveryTransactions] = useState<PropertyDelivery[]>([
     {
@@ -172,62 +224,101 @@ export function BidderPage() {
     
     setIsLoading(true);
     
-    // Simulate blockchain transaction
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    const newDeposit: DepositTransaction = {
-      propertyId: selectedProperty.id,
-      amount: parseFloat(depositAmount),
-      tokenType: selectedTokenType,
-      status: "Confirmed",
-      txHash: `0x${Math.random().toString(16).substr(2, 40)}`,
-      timestamp: new Date().toISOString()
-    };
-    
-    setDepositTransactions(prev => [...prev, newDeposit]);
-    
-    alert(`Deposit of ${formatPrice(parseFloat(depositAmount))} confirmed! You received ${formatPrice(parseFloat(depositAmount))} EERC20 tokens for bidding.`);
-    
-    setDepositAmount("");
-    setSelectedProperty(null);
-    setIsLoading(false);
+    try {
+      // 실제 API 호출로 deposit 생성
+      const deposit = await apiService.createDeposit(
+        selectedProperty.id,
+        currentUserId,
+        parseFloat(depositAmount),
+        "wKRW"
+      );
+      
+      // 새로운 deposit을 로컬 상태에 추가
+      const newDepositTransaction: DepositTransaction = {
+        propertyId: deposit.property_id,
+        amount: deposit.amount,
+        tokenType: deposit.token_type as "wKRW" | "EERC20",
+        status: deposit.status as "Pending" | "Confirmed" | "Failed",
+        txHash: deposit.tx_hash,
+        timestamp: deposit.created_at
+      };
+      
+      setDepositTransactions(prev => [...prev, newDepositTransaction]);
+      
+      alert(`Deposit of ${formatPrice(parseFloat(depositAmount))} confirmed! Transaction Hash: ${deposit.tx_hash}`);
+      
+      setDepositAmount("");
+      setSelectedProperty(null);
+    } catch (error) {
+      console.error('❌ Failed to submit deposit:', error);
+      alert(`Failed to submit deposit: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleBidSubmit = async () => {
-    if (!selectedProperty || !bidAmount) return;
+    console.log('🔥 handleBidSubmit 함수 호출됨!');
+    console.log('selectedProperty:', selectedProperty);
+    console.log('bidAmount:', bidAmount);
+    
+    if (!selectedProperty || !bidAmount) {
+      console.log('❌ selectedProperty 또는 bidAmount가 없음');
+      return;
+    }
     
     const bidValue = parseFloat(bidAmount);
+    console.log('bidValue:', bidValue, 'minimumPrice:', selectedProperty.minimumPrice);
+    
     if (bidValue < selectedProperty.minimumPrice) {
+      console.log('❌ Bid amount가 minimum price보다 작음');
       alert("Bid amount must be at least the minimum price.");
       return;
     }
     
+    console.log('hasDeposit 체크:', hasDeposit(selectedProperty.id));
     if (!hasDeposit(selectedProperty.id)) {
+      console.log('❌ Deposit이 없음');
       alert("Please complete deposit payment before submitting a bid.");
       return;
     }
     
+    console.log('✅ 모든 검증 통과, API 호출 시작');
     setIsLoading(true);
     
-    // Simulate encrypted bid submission
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    const newBid: BidSubmission = {
-      propertyId: selectedProperty.id,
-      bidAmount: bidValue,
-      depositConfirmed: true,
-      bidType,
-      submissionTime: new Date().toISOString(),
-      status: "Submitted"
-    };
-    
-    setBidSubmissions(prev => [...prev, newBid]);
-    
-    alert(`Encrypted bid of ${formatPrice(bidValue)} submitted successfully! Your bid is sealed until the auction deadline.`);
-    
-    setBidAmount("");
-    setSelectedProperty(null);
-    setIsLoading(false);
+    try {
+      // 실제 API 호출로 bid 생성 (항상 encrypted로 처리)
+      const encryptedData = `encrypted_bid_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const bid = await apiService.createBid(
+        selectedProperty.id,
+        currentUserId,
+        bidValue,
+        true, // 항상 encrypted
+        encryptedData
+      );
+      
+      // 새로운 bid를 로컬 상태에 추가
+      const newBidSubmission: BidSubmission = {
+        propertyId: bid.property_id,
+        bidAmount: bid.amount,
+        depositConfirmed: true,
+        bidType: "Sealed", // 항상 encrypted/sealed
+        submissionTime: bid.created_at,
+        status: bid.status as "Draft" | "Submitted" | "Confirmed"
+      };
+      
+      setBidSubmissions(prev => [...prev, newBidSubmission]);
+      
+      alert(`Encrypted bid of ${formatPrice(bidValue)} submitted successfully! Transaction Hash: ${bid.tx_hash}`);
+      
+      setBidAmount("");
+      setSelectedProperty(null);
+    } catch (error) {
+      console.error('❌ Failed to submit bid:', error);
+      alert(`Failed to submit bid: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handlePaymentSubmit = async () => {
@@ -287,7 +378,48 @@ export function BidderPage() {
           {/* Browse Properties Tab */}
           {activeTab === "browse" && (
             <div className="space-y-6">
-              <h2 className="avax-subheading text-2xl">Available Auction Properties</h2>
+              <div className="flex justify-between items-center">
+                <h2 className="avax-subheading text-2xl">Available Auction Properties</h2>
+                <div className="flex items-center space-x-2 text-sm">
+                  <span className="text-erea-text-light">API Status:</span>
+                  <div className="flex items-center space-x-1">
+                    <div className={`w-2 h-2 rounded-full ${isApiConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                    <span className={`font-semibold ${isApiConnected ? 'text-green-600' : 'text-red-600'}`}>
+                      {isApiConnected ? 'Connected' : 'Disconnected'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Loading State */}
+              {isLoading && availableProperties.length === 0 && (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-erea-primary mx-auto mb-4"></div>
+                  <p className="text-erea-text-light">Loading auction properties...</p>
+                </div>
+              )}
+              
+              {/* Empty State */}
+              {!isLoading && availableProperties.length === 0 && (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">🏠</div>
+                  <h3 className="text-lg font-semibold text-erea-text mb-2">No Properties Available</h3>
+                  <p className="text-erea-text-light">
+                    {isApiConnected 
+                      ? "No auction properties are currently available. Please check back later."
+                      : "Unable to load properties. Please check your connection and try again."
+                    }
+                  </p>
+                  {!isApiConnected && (
+                    <button
+                      onClick={initializeApiConnection}
+                      className="avax-button-outline mt-4"
+                    >
+                      Retry Connection
+                    </button>
+                  )}
+                </div>
+              )}
               
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                 {availableProperties.map((property) => (
@@ -446,18 +578,6 @@ export function BidderPage() {
 
                   <div className="space-y-4">
                     <div>
-                      <label className="block avax-subheading text-sm mb-2">Token Type</label>
-                      <select
-                        value={selectedTokenType}
-                        onChange={(e) => setSelectedTokenType(e.target.value as "wKRW" | "EERC20")}
-                        className="avax-input w-full"
-                      >
-                        <option value="wKRW">wKRW (Wrapped Korean Won)</option>
-                        <option value="EERC20">EERC20 (Direct Transfer)</option>
-                      </select>
-                    </div>
-                    
-                    <div>
                       <label className="block avax-subheading text-sm mb-2">Deposit Amount (KRW)</label>
                       <input
                         type="number"
@@ -602,18 +722,6 @@ export function BidderPage() {
 
                       <div className="space-y-4">
                         <div>
-                          <label className="block avax-subheading text-sm mb-2">Bid Type</label>
-                          <select
-                            value={bidType}
-                            onChange={(e) => setBidType(e.target.value as "Sealed" | "Open")}
-                            className="avax-input w-full"
-                          >
-                            <option value="Sealed">Sealed Bid (Encrypted)</option>
-                            <option value="Open">Open Bid (Visible)</option>
-                          </select>
-                        </div>
-                        
-                        <div>
                           <label className="block avax-subheading text-sm mb-2">Bid Amount (KRW)</label>
                           <input
                             type="number"
@@ -631,9 +739,10 @@ export function BidderPage() {
                         </div>
                         
                         <div className="avax-card p-4 bg-amber-50 border border-avax-warning">
-                          <h4 className="avax-subheading text-sm mb-2">Important Notice</h4>
+                          <h4 className="avax-subheading text-sm mb-2">🔒 Encrypted Bidding Notice</h4>
                           <ul className="text-xs text-erea-text space-y-1">
-                            <li>• Sealed bids are encrypted and cannot be changed after submission</li>
+                            <li>• All bids are automatically encrypted and sealed for privacy</li>
+                            <li>• Encrypted bids cannot be changed after submission</li>
                             <li>• Your bid amount must not exceed your available EERC20 balance</li>
                             <li>• If you win, the remaining amount must be paid within 7 days</li>
                             <li>• Deposits are automatically refunded if you don't win</li>
@@ -651,8 +760,20 @@ export function BidderPage() {
                             Cancel
                           </button>
                           <button
-                            onClick={handleBidSubmit}
-                            disabled={isLoading || !bidAmount || parseFloat(bidAmount) < selectedProperty.minimumPrice}
+                            onClick={() => {
+                              console.log('🎯 Submit Encrypted Bid 버튼 클릭됨!');
+                              console.log('Button disabled 상태:', isLoading || !bidAmount || (selectedProperty && parseFloat(bidAmount) < selectedProperty.minimumPrice));
+                              console.log('isLoading:', isLoading);
+                              console.log('bidAmount:', bidAmount);
+                              console.log('selectedProperty:', selectedProperty);
+                              if (selectedProperty) {
+                                console.log('bidAmount 파싱값:', parseFloat(bidAmount));
+                                console.log('minimumPrice:', selectedProperty.minimumPrice);
+                                console.log('bidAmount < minimumPrice:', parseFloat(bidAmount) < selectedProperty.minimumPrice);
+                              }
+                              handleBidSubmit();
+                            }}
+                            disabled={isLoading || !bidAmount || (selectedProperty && parseFloat(bidAmount) < selectedProperty.minimumPrice)}
                             className="avax-button-primary flex-1"
                           >
                             {isLoading ? "Submitting..." : "Submit Encrypted Bid"}
