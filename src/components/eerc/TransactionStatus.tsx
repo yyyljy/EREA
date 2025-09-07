@@ -41,12 +41,12 @@ export function TransactionStatus({ status, message, txHash }: TransactionStatus
             <div className="text-sm text-erea-text-light mt-1">
               <span>Transaction: </span>
               <a
-                href={`https://snowscan.xyz/tx/${txHash}`}
+                href={`https://testnet.avascan.info/blockchain/c/tx/${txHash}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-mono text-erea-primary hover:underline"
+                className="font-mono text-erea-primary hover:underline underline"
               >
-                {txHash.slice(0, 10)}...{txHash.slice(-8)}
+                {txHash}
               </a>
             </div>
           )}

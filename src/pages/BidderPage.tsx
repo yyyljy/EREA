@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { apiService } from '../services/ApiService';
+import { eercService } from '../services/EERCService';
 import { Property as PropertyType } from '../types/Property';
 
 // API에서 받아온 Property 타입을 BidderPage용으로 매핑하는 인터페이스
@@ -50,9 +51,28 @@ export function BidderPage() {
   const [selectedProperty, setSelectedProperty] = useState<BidderProperty | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isApiConnected, setIsApiConnected] = useState(false);
+  const [isEERCConnected, setIsEERCConnected] = useState(false);
 
   // User ID (실제 앱에서는 인증 시스템에서 가져와야 함)
   const [currentUserId] = useState<string>('user_demo_bidder_001');
+
+  // EERC 관련 상태
+  const [eercBalance, setEERCBalance] = useState<string>('0.00');
+  const [eercSymbol, setEERCSymbol] = useState<string>('PRIV');
+  const [contractAddresses, setContractAddresses] = useState<{ encryptedERC: string; registrar: string } | null>(null);
+  const [systemStatus, setSystemStatus] = useState<{
+    userRegistered: boolean;
+    auditorSet: boolean;
+    contractsLoaded: boolean;
+    userAddress: string;
+    auditorAddress: string;
+  }>({
+    userRegistered: false,
+    auditorSet: false,
+    contractsLoaded: false,
+    userAddress: '',
+    auditorAddress: ''
+  });
 
   // Deposit Form State
   const [depositAmount, setDepositAmount] = useState<string>("");
@@ -86,8 +106,64 @@ export function BidderPage() {
 
   // API 연결 및 데이터 로드
   useEffect(() => {
-    initializeApiConnection();
+    initializeConnections();
   }, []);
+
+  // API와 EERC 서비스 초기화
+  const initializeConnections = async () => {
+    await Promise.all([
+      initializeApiConnection(),
+      initializeEERCConnection()
+    ]);
+  };
+
+  // EERC 서비스 초기화
+  const initializeEERCConnection = async () => {
+    try {
+      console.log('🔧 BidderPage: Initializing EERC connection...');
+      const initialized = await eercService.initialize();
+      
+      if (initialized) {
+        console.log('✅ BidderPage: EERC service connected');
+        setIsEERCConnected(true);
+        
+        // Load contract addresses
+        const addresses = eercService.getContractAddresses();
+        setContractAddresses(addresses);
+        
+        // Load EERC configuration
+        const config = eercService.getConfig();
+        if (config) {
+          setEERCSymbol(config.eerc.token_symbol);
+        }
+        
+        // Load system status
+        const status = await eercService.getSystemStatus();
+        setSystemStatus(status);
+        
+        await loadEERCBalance();
+      } else {
+        throw new Error('EERC service initialization failed');
+      }
+    } catch (error) {
+      console.error('❌ BidderPage: Failed to initialize EERC service:', error);
+      setIsEERCConnected(false);
+    }
+  };
+
+  // EERC 밸런스 로드
+  const loadEERCBalance = async () => {
+    try {
+      console.log('🔍 BidderPage: Loading EERC balance...');
+      const balance = await eercService.getUserBalance();
+      setEERCBalance(balance.balance);
+      setEERCSymbol(balance.symbol);
+      console.log(`💰 BidderPage: EERC balance loaded: ${balance.balance} ${balance.symbol}`);
+    } catch (error) {
+      console.error('❌ BidderPage: Failed to load EERC balance:', error);
+      setEERCBalance('0.00');
+    }
+  };
 
   // deposit 데이터를 API에서 로드하는 함수
   const loadDepositTransactions = async () => {
@@ -225,33 +301,89 @@ export function BidderPage() {
     setIsLoading(true);
     
     try {
-      // 실제 API 호출로 deposit 생성
+      console.log('💰 Processing deposit with ZK-powered EERC token minting...');
+      
+      const depositAmountInKRW = parseFloat(depositAmount);
+      const eercMintAmount = depositAmountInKRW; // 입력한 KRW만큼 EERC 토큰 민팅 (1 KRW = 1 EERC)
+      
+      console.log(`🪙 Calling ZK Service via Go backend for ${eercMintAmount} tokens...`);
+      console.log(`🔗 Flow: BidderPage → EERCService → Go Backend → ZK Service → 05_mint.ts`);
+      
+      // 1. 먼저 EERC 토큰 민팅 시도 (실패하면 여기서 에러 발생)
+      const mintResult = await eercService.mintTokensToUser(eercMintAmount);
+      
+      if (!mintResult.success) {
+        throw new Error(`EERC token minting failed: ${mintResult.error}`);
+      }
+      
+      console.log(`✅ EERC mint successful, now creating deposit record...`);
+      
+      // 2. EERC 민팅이 성공한 경우에만 API 호출로 deposit 생성
       const deposit = await apiService.createDeposit(
         selectedProperty.id,
         currentUserId,
-        parseFloat(depositAmount),
-        "wKRW"
+        depositAmountInKRW,
+        "EERC20" // EERC 토큰으로 기록
       );
       
-      // 새로운 deposit을 로컬 상태에 추가
+      // 3. EERC 밸런스 업데이트
+      await loadEERCBalance();
+      
+      // 4. 새로운 deposit을 로컬 상태에 추가 (실제 EERC txHash 포함)
       const newDepositTransaction: DepositTransaction = {
         propertyId: deposit.property_id,
         amount: deposit.amount,
-        tokenType: deposit.token_type as "wKRW" | "EERC20",
-        status: deposit.status as "Pending" | "Confirmed" | "Failed",
-        txHash: deposit.tx_hash,
+        tokenType: "EERC20" as "wKRW" | "EERC20",
+        status: "Confirmed" as "Pending" | "Confirmed" | "Failed", // EERC 성공하면 Confirmed
+        txHash: mintResult.txHash!, // 실제 EERC txHash 사용
         timestamp: deposit.created_at
       };
       
       setDepositTransactions(prev => [...prev, newDepositTransaction]);
       
-      alert(`Deposit of ${formatPrice(parseFloat(depositAmount))} confirmed! Transaction Hash: ${deposit.tx_hash}`);
+      alert(`✅ Deposit successful via ZK Service!\n💰 Amount: ${formatPrice(depositAmountInKRW)}\n🪙 EERC Tokens Minted: ${eercMintAmount} ${eercSymbol}\n📝 Real Blockchain Transaction: ${mintResult.txHash}\n🔗 View on Explorer: https://testnet.avascan.info/blockchain/c/tx/${mintResult.txHash}\n\n🔧 Powered by: Go Backend → ZK Service → 05_mint.ts`);
       
       setDepositAmount("");
       setSelectedProperty(null);
     } catch (error) {
       console.error('❌ Failed to submit deposit:', error);
-      alert(`Failed to submit deposit: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      // EERC 실패 시 구체적인 에러 메시지 제공
+      let errorMessage = 'Deposit failed: ';
+      if (error instanceof Error) {
+        if (error.message.includes('UNPREDICTABLE_GAS_LIMIT')) {
+          errorMessage = '❌ Contract execution failed\n\n' +
+                        'This usually means:\n' +
+                        '• Invalid ZK proof structure\n' +
+                        '• User not properly registered\n' +
+                        '• Auditor not set correctly\n\n' +
+                        '💡 Use standalone test scripts for real minting';
+        } else if (error.message.includes('execution reverted')) {
+          errorMessage = '❌ Transaction rejected by contract\n\n' +
+                        'Please verify all prerequisites are met.';
+        } else if (error.message.includes('Failed to execute ZK mint')) {
+          errorMessage = '❌ ZK Service Connection Failed\n\n' +
+                        'Could not connect to ZK Service for minting.\n\n' +
+                        '💡 Check:\n' +
+                        '• ZK Service is running on port 3001\n' +
+                        '• eerc-backend-converter is properly installed\n' +
+                        '• Environment variables are set correctly\n\n' +
+                        'Start ZK Service: cd zk-service && node server.js';
+        } else if (error.message.includes('proper ZK proof generation')) {
+          errorMessage = '⚠️ ZK Service Integration\n\n' +
+                        'Now using Go Backend + ZK Service architecture.\n\n' +
+                        '💡 Real flow:\n' +
+                        '• Frontend → Go Backend → ZK Service → 05_mint.ts\n' +
+                        '• Actual blockchain transactions via ZK circuits\n\n' +
+                        'Check ZK Service status: curl http://localhost:3001/health';
+        } else {
+          errorMessage += error.message;
+        }
+      } else {
+        errorMessage += 'Unknown error occurred';
+      }
+      
+      alert(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -282,12 +414,41 @@ export function BidderPage() {
       alert("Please complete deposit payment before submitting a bid.");
       return;
     }
+
+    // EERC 밸런스 체크
+    const currentEERCBalance = parseFloat(eercBalance);
+    const requiredEERCAmount = bidValue; // 1:1 비율로 변환
     
-    console.log('✅ 모든 검증 통과, API 호출 시작');
+    console.log('EERC Balance Check:', {
+      currentBalance: currentEERCBalance,
+      requiredAmount: requiredEERCAmount,
+      symbol: eercSymbol
+    });
+    
+    if (currentEERCBalance < requiredEERCAmount) {
+      alert(`Insufficient EERC balance. You have ${currentEERCBalance} ${eercSymbol}, but need ${requiredEERCAmount.toFixed(2)} ${eercSymbol}`);
+      return;
+    }
+    
+    console.log('✅ 모든 검증 통과, API 및 EERC 전송 시작');
     setIsLoading(true);
     
     try {
-      // 실제 API 호출로 bid 생성 (항상 encrypted로 처리)
+      console.log('🔄 Processing bid with ZK-powered EERC token transfer...');
+      
+      // 1. 먼저 EERC 토큰 전송 시도 (실패하면 여기서 에러 발생)
+      console.log(`🔄 Calling ZK Service via Go backend for ${requiredEERCAmount} tokens transfer...`);
+      console.log(`🔗 Flow: BidderPage → EERCService → Go Backend → ZK Service → 07_transfer.ts`);
+      
+      const transferResult = await eercService.transferTokensToAdmin(requiredEERCAmount);
+      
+      if (!transferResult.success) {
+        throw new Error(`EERC token transfer failed: ${transferResult.error}`);
+      }
+      
+      console.log(`✅ EERC transfer successful, now creating bid record...`);
+      
+      // 2. EERC 전송이 성공한 경우에만 API 호출로 bid 생성
       const encryptedData = `encrypted_bid_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const bid = await apiService.createBid(
         selectedProperty.id,
@@ -297,25 +458,58 @@ export function BidderPage() {
         encryptedData
       );
       
-      // 새로운 bid를 로컬 상태에 추가
+      // 3. EERC 밸런스 업데이트
+      await loadEERCBalance();
+      
+      // 4. 새로운 bid를 로컬 상태에 추가 (실제 EERC txHash 포함)
       const newBidSubmission: BidSubmission = {
         propertyId: bid.property_id,
         bidAmount: bid.amount,
         depositConfirmed: true,
         bidType: "Sealed", // 항상 encrypted/sealed
         submissionTime: bid.created_at,
-        status: bid.status as "Draft" | "Submitted" | "Confirmed"
+        status: "Confirmed" as "Draft" | "Submitted" | "Confirmed" // EERC 성공하면 Confirmed
       };
       
       setBidSubmissions(prev => [...prev, newBidSubmission]);
       
-      alert(`Encrypted bid of ${formatPrice(bidValue)} submitted successfully! Transaction Hash: ${bid.tx_hash}`);
+      alert(`✅ Encrypted bid submitted via ZK Service!\n💰 Bid Amount: ${formatPrice(bidValue)}\n🔄 EERC Transferred: ${requiredEERCAmount.toFixed(2)} ${eercSymbol}\n📝 Real Blockchain Transaction: ${transferResult.txHash}\n🔗 View on Explorer: https://testnet.avascan.info/blockchain/c/tx/${transferResult.txHash}\n\n🔧 Powered by: Go Backend → ZK Service → 07_transfer.ts`);
       
       setBidAmount("");
       setSelectedProperty(null);
     } catch (error) {
       console.error('❌ Failed to submit bid:', error);
-      alert(`Failed to submit bid: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      // EERC 실패 시 구체적인 에러 메시지 제공
+      let errorMessage = 'Bid submission failed: ';
+      if (error instanceof Error) {
+        if (error.message.includes('UNPREDICTABLE_GAS_LIMIT')) {
+          errorMessage = '❌ Contract execution failed\n\n' +
+                        'This usually means:\n' +
+                        '• Invalid ZK proof structure\n' +
+                        '• User not properly registered\n' +
+                        '• Auditor not set correctly\n\n' +
+                        '💡 Use standalone test scripts for real transfers';
+        } else if (error.message.includes('execution reverted')) {
+          errorMessage = '❌ Transaction rejected by contract\n\n' +
+                        'Please verify all prerequisites are met.';
+        } else if (error.message.includes('proper ZK proof generation')) {
+          errorMessage = '⚠️ ZK Proof Generation Required\n\n' +
+                        'Real EERC transfers require proper zero-knowledge proof generation.\n\n' +
+                        '💡 For testing:\n' +
+                        '• Use standalone transfer script: 07_transfer.ts\n' +
+                        '• Or implement privateTransfer() helper\n\n' +
+                        'Current implementation prevents invalid contract calls.';
+        } else if (error.message.includes('Insufficient balance')) {
+          errorMessage = '💰 Insufficient EERC Balance\n\n' + error.message;
+        } else {
+          errorMessage += error.message;
+        }
+      } else {
+        errorMessage += 'Unknown error occurred';
+      }
+      
+      alert(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -380,13 +574,24 @@ export function BidderPage() {
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h2 className="avax-subheading text-2xl">Available Auction Properties</h2>
-                <div className="flex items-center space-x-2 text-sm">
-                  <span className="text-erea-text-light">API Status:</span>
-                  <div className="flex items-center space-x-1">
-                    <div className={`w-2 h-2 rounded-full ${isApiConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-                    <span className={`font-semibold ${isApiConnected ? 'text-green-600' : 'text-red-600'}`}>
-                      {isApiConnected ? 'Connected' : 'Disconnected'}
-                    </span>
+                <div className="flex items-center space-x-4 text-sm">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-erea-text-light">API:</span>
+                    <div className="flex items-center space-x-1">
+                      <div className={`w-2 h-2 rounded-full ${isApiConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                      <span className={`font-semibold ${isApiConnected ? 'text-green-600' : 'text-red-600'}`}>
+                        {isApiConnected ? 'Connected' : 'Disconnected'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-erea-text-light">EERC:</span>
+                    <div className="flex items-center space-x-1">
+                      <div className={`w-2 h-2 rounded-full ${isEERCConnected ? 'bg-blue-500 animate-pulse' : 'bg-red-500'}`}></div>
+                      <span className={`font-semibold ${isEERCConnected ? 'text-blue-600' : 'text-red-600'}`}>
+                        {isEERCConnected ? 'Connected' : 'Disconnected'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -652,9 +857,14 @@ export function BidderPage() {
                                 {deposit.status}
                               </span>
                               {deposit.txHash && (
-                                <p className="text-xs text-erea-text-light mt-1 font-mono">
-                                  {deposit.txHash.slice(0, 10)}...{deposit.txHash.slice(-8)}
-                                </p>
+                                <a 
+                                  href={`https://testnet.avascan.info/blockchain/c/tx/${deposit.txHash}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-erea-primary hover:text-erea-secondary mt-1 font-mono block underline"
+                                >
+                                  {deposit.txHash}
+                                </a>
                               )}
                             </div>
                           </div>
@@ -710,13 +920,26 @@ export function BidderPage() {
                         </div>
                         
                         <div className="avax-card p-4 bg-avax-light">
-                          <h4 className="avax-subheading text-sm mb-3">Available EERC20</h4>
+                          <h4 className="avax-subheading text-sm mb-3">Available EERC Balance</h4>
                           <div className="text-center">
                             <div className="text-lg font-bold text-erea-primary">
-                              {formatPrice(depositTransactions.find(d => d.propertyId === selectedProperty.id)?.amount || 0)}
+                              {eercBalance} {eercSymbol}
                             </div>
-                            <div className="text-sm text-erea-text-light">EERC20 Tokens</div>
+                            <div className="text-sm text-erea-text-light">
+                              Encrypted Private Tokens
+                              {isEERCConnected ? (
+                                <span className="ml-2 text-green-600">🔗 Connected</span>
+                              ) : (
+                                <span className="ml-2 text-red-600">❌ Disconnected</span>
+                              )}
+                            </div>
                           </div>
+                          <button
+                            onClick={loadEERCBalance}
+                            className="mt-2 text-xs text-erea-primary hover:text-erea-secondary"
+                          >
+                            🔄 Refresh Balance
+                          </button>
                         </div>
                       </div>
 
@@ -733,9 +956,19 @@ export function BidderPage() {
                             step="1000000"
                             required
                           />
-                          <p className="text-xs text-erea-text-light mt-1">
-                            Minimum bid: {formatPrice(selectedProperty.minimumPrice)}
-                          </p>
+                          <div className="mt-1 space-y-1">
+                            <p className="text-xs text-erea-text-light">
+                              Minimum bid: {formatPrice(selectedProperty.minimumPrice)}
+                            </p>
+                            {bidAmount && (
+                              <p className="text-xs text-erea-primary font-semibold">
+                                🔄 EERC Required: {parseFloat(bidAmount).toFixed(2)} {eercSymbol}
+                              </p>
+                            )}
+                            <p className="text-xs text-erea-text-light">
+                              💰 Your EERC Balance: {eercBalance} {eercSymbol}
+                            </p>
+                          </div>
                         </div>
                         
                         <div className="avax-card p-4 bg-amber-50 border border-avax-warning">
@@ -1069,6 +1302,120 @@ export function BidderPage() {
         </div>
       </div>
 
+      {/* EERC System Status */}
+      {contractAddresses && isEERCConnected && (
+        <div className={`avax-card p-6 border-l-4 ${
+          systemStatus.userRegistered && systemStatus.auditorSet 
+            ? 'bg-green-50 border-avax-success' 
+            : 'bg-yellow-50 border-avax-warning'
+        }`}>
+          <h3 className="avax-subheading text-lg mb-3 flex items-center">
+            <span className="mr-2">🏗️</span>
+            EERC System Status
+          </h3>
+          
+          {/* System Requirements Status */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div className="flex items-center space-x-2">
+              <span className={`w-3 h-3 rounded-full ${systemStatus.userRegistered ? 'bg-green-500' : 'bg-red-500'}`}></span>
+              <span className="text-sm font-semibold">
+                User {systemStatus.userRegistered ? 'Registered' : 'Not Registered'}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className={`w-3 h-3 rounded-full ${systemStatus.auditorSet ? 'bg-green-500' : 'bg-red-500'}`}></span>
+              <span className="text-sm font-semibold">
+                Auditor {systemStatus.auditorSet ? 'Set' : 'Not Set'}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className={`w-3 h-3 rounded-full ${systemStatus.contractsLoaded ? 'bg-green-500' : 'bg-red-500'}`}></span>
+              <span className="text-sm font-semibold">
+                Contracts {systemStatus.contractsLoaded ? 'Loaded' : 'Not Loaded'}
+              </span>
+            </div>
+          </div>
+
+          {/* Status Message */}
+          {(!systemStatus.userRegistered || !systemStatus.auditorSet) ? (
+            <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
+              <div className="flex">
+                <div className="py-1">
+                  <svg className="fill-current h-6 w-6 text-yellow-500 mr-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <path d="M2.93 17.07A10 10 0 1 1 17.07 2.93 10 10 0 0 1 2.93 17.07zm12.73-1.41A8 8 0 1 0 4.34 4.34a8 8 0 0 0 11.32 11.32zM9 11V9h2v6H9v-4zm0-6h2v2H9V5z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-bold">EERC Prerequisites Required</p>
+                  <p className="text-sm">
+                    {!systemStatus.userRegistered && "• User registration required for minting/transfers"}
+                    {!systemStatus.auditorSet && "• Auditor must be set for contract operations"}
+                  </p>
+                  <p className="text-sm mt-1 font-semibold">
+                    Real transactions are disabled. Using validated simulation mode.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+              <div className="flex">
+                <div className="py-1">
+                  <svg className="fill-current h-6 w-6 text-green-500 mr-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-bold">EERC System Ready</p>
+                  <p className="text-sm">
+                    ✅ User is registered and auditor is set
+                  </p>
+                  <p className="text-sm mt-1 font-semibold">
+                    Real blockchain transactions are enabled!
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Contract Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="font-semibold text-erea-text">EncryptedERC Contract:</span>
+              <p className="font-mono text-xs text-erea-text-light break-all mt-1">
+                {contractAddresses.encryptedERC}
+              </p>
+            </div>
+            <div>
+              <span className="font-semibold text-erea-text">Registrar Contract:</span>
+              <p className="font-mono text-xs text-erea-text-light break-all mt-1">
+                {contractAddresses.registrar}
+              </p>
+            </div>
+          </div>
+          
+          {/* User and Network Info */}
+          <div className="mt-3 flex items-center space-x-4 text-sm">
+            <span className="flex items-center">
+              <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+              <span className="font-semibold">Token: {eercSymbol}</span>
+            </span>
+            <span className="flex items-center">
+              <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+              <span className="font-semibold">Network: Fuji Testnet</span>
+            </span>
+            {systemStatus.userAddress && (
+              <span className="flex items-center">
+                <span className="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+                <span className="font-semibold font-mono text-xs">
+                  User: {systemStatus.userAddress.slice(0, 6)}...{systemStatus.userAddress.slice(-4)}
+                </span>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Security Notice */}
       <div className="avax-card p-6 bg-blue-50 border-l-4 border-erea-primary">
         <h3 className="avax-subheading text-lg mb-2 flex items-center">
@@ -1076,7 +1423,7 @@ export function BidderPage() {
           Security & Privacy
         </h3>
         <p className="avax-body">
-          All transactions are secured using Avalanche blockchain technology with EERC20 encryption. 
+          All transactions are secured using Avalanche blockchain technology with EERC encryption. 
           Your bid amounts and personal information are protected while maintaining complete 
           transparency of the auction process for regulatory compliance.
         </p>

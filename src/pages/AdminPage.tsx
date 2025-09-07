@@ -21,7 +21,7 @@ const AVAILABLE_IMAGES = [
 // }
 
 export function AdminPage() {
-  const [activeTab, setActiveTab] = useState<"register" | "manage" | "residents" | "analytics">("register");
+  const [activeTab, setActiveTab] = useState<"register" | "manage" | "residents">("register");
   const [isLoading, setIsLoading] = useState(false);
   const [isRedisConnected, setIsRedisConnected] = useState(false);
   
@@ -59,6 +59,9 @@ export function AdminPage() {
   // Properties from Redis
   const [registeredProperties, setRegisteredProperties] = useState<Property[]>([]);
   
+  // Bid data from API
+  const [bidData, setBidData] = useState<{ [propertyId: string]: number }>({});
+  
   // Validation states
   const [fieldErrors, setFieldErrors] = useState<Record<keyof PropertyRegistrationForm, string>>({} as Record<keyof PropertyRegistrationForm, string>);
   const [isFormValid, setIsFormValid] = useState(false);
@@ -79,14 +82,14 @@ export function AdminPage() {
         const healthCheck = await apiService.healthCheck();
         console.log('✅ Connected to backend API:', healthCheck.message);
         setIsRedisConnected(true);
-        await loadProperties();
+        await Promise.all([loadProperties(), loadBidData()]);
       } else {
         throw new Error('API server is not responding');
       }
     } catch (error) {
       console.error('❌ Failed to connect to backend API:', error);
       setIsRedisConnected(false);
-      await loadProperties(); // 실패해도 로드 시도
+      await Promise.all([loadProperties(), loadBidData()]); // 실패해도 로드 시도
     }
   };
 
@@ -118,6 +121,28 @@ export function AdminPage() {
       console.error('❌ Failed to load properties from backend API:', error);
       // 실패 시 빈 배열로 설정
       setRegisteredProperties([]);
+    }
+  };
+
+  const loadBidData = async () => {
+    try {
+      console.log('🔍 AdminPage: Loading bid data from API...');
+      const allBids = await apiService.getAllBids();
+      console.log('📋 AdminPage: Raw bid data received:', allBids);
+      
+      // 각 property별 bid 수를 계산
+      const bidCounts: { [propertyId: string]: number } = {};
+      allBids.forEach(bid => {
+        console.log(`📝 Processing bid: ${bid.id} for property: ${bid.property_id}`);
+        bidCounts[bid.property_id] = (bidCounts[bid.property_id] || 0) + 1;
+      });
+      
+      setBidData(bidCounts);
+      console.log(`📊 AdminPage: Loaded bid data for ${Object.keys(bidCounts).length} properties:`, bidCounts);
+    } catch (error) {
+      console.error('❌ AdminPage: Failed to load bid data:', error);
+      // 실패 시 빈 객체로 설정
+      setBidData({});
     }
   };
 
@@ -234,8 +259,8 @@ export function AdminPage() {
       await apiService.saveProperty(property);
       console.log(`✅ Successfully saved to backend API with case number: ${property.caseNumber}`);
       
-      // 등록된 속성 목록 새로고침
-      await loadProperties();
+      // 등록된 속성 목록 및 bid 데이터 새로고침
+      await Promise.all([loadProperties(), loadBidData()]);
       
       alert(`Property registered successfully!\nSaved to backend API with case number: ${property.caseNumber}`);
       
@@ -364,8 +389,7 @@ export function AdminPage() {
             {[
               { key: "register", label: "Property Registration" },
               { key: "manage", label: "Auction Management" },
-              { key: "residents", label: "Resident Verification" },
-              { key: "analytics", label: "Platform Analytics" }
+              { key: "residents", label: "Resident Verification" }
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -997,7 +1021,7 @@ export function AdminPage() {
                 </div>
                 <div className="avax-card p-6 text-center">
                   <div className="text-3xl font-bold text-avax-warning">
-                    {registeredProperties.reduce((sum) => sum + (Math.floor(Math.random() * 5)), 0)}
+                    {Object.values(bidData).reduce((sum, count) => sum + count, 0)}
                   </div>
                   <div className="text-erea-text-light font-semibold">Total Bids</div>
                 </div>
@@ -1063,15 +1087,56 @@ export function AdminPage() {
                             {formatPrice(property.minimumPrice)}
                           </td>
                           <td className="px-6 py-4 text-sm text-erea-text">
-                            {Math.floor(Math.random() * 5)}
+                            <div className="flex items-center space-x-2">
+                              <span className="font-semibold">{bidData[property.id] || 0}</span>
+                              {(bidData[property.id] || 0) > 0 && (
+                                <span className="px-2 py-1 text-xs bg-erea-primary text-white rounded-full">
+                                  Active
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-6 py-4 text-sm">
                             <div className="flex space-x-2">
                               <button className="avax-button-outline text-xs px-3 py-1">
                                 Edit
                               </button>
-                              <button className="avax-button-secondary text-xs px-3 py-1">
-                                View Bids
+                              <button 
+                                className="avax-button-secondary text-xs px-3 py-1"
+                                onClick={async () => {
+                                  try {
+                                    console.log(`🔍 Loading bids for property: ${property.id} (${property.title})`);
+                                    const bids = await apiService.getPropertyBids(property.id);
+                                    console.log(`📋 Received bids:`, bids);
+                                    
+                                    if (!Array.isArray(bids)) {
+                                      console.error('❌ Bids is not an array:', bids);
+                                      alert('Invalid bid data format received');
+                                      return;
+                                    }
+                                    
+                                    const bidDetails = bids.map((bid, index) => {
+                                      console.log(`📝 Processing bid ${index}:`, bid);
+                                      try {
+                                        return `Bidder: ${bid.bidder_id}\nAmount: ${formatPrice(bid.amount)}\nTime: ${new Date(bid.created_at).toLocaleString()}`;
+                                      } catch (formatError) {
+                                        console.error(`❌ Error formatting bid ${index}:`, formatError, bid);
+                                        return `Bidder: ${bid.bidder_id || 'Unknown'}\nAmount: Error formatting\nTime: ${bid.created_at || 'Unknown'}`;
+                                      }
+                                    }).join('\n\n');
+                                    
+                                    if (bids.length > 0) {
+                                      alert(`Bids for ${property.title}:\n\n${bidDetails}`);
+                                    } else {
+                                      alert(`No bids found for ${property.title}`);
+                                    }
+                                  } catch (error) {
+                                    console.error('❌ Failed to load bids for property:', property.id, error);
+                                    alert(`Failed to load bid details: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                                  }
+                                }}
+                              >
+                                View Bids ({bidData[property.id] || 0})
                               </button>
                             </div>
                           </td>
@@ -1150,69 +1215,6 @@ export function AdminPage() {
             </div>
           )}
 
-          {/* Platform Analytics Tab */}
-          {activeTab === "analytics" && (
-            <div className="space-y-6">
-              <h2 className="avax-subheading text-2xl">Platform Analytics</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="avax-card p-6 text-center">
-                  <div className="text-3xl font-bold text-erea-primary">$4.2M</div>
-                  <div className="text-erea-text-light font-semibold">Total Transaction Value</div>
-                </div>
-                <div className="avax-card p-6 text-center">
-                  <div className="text-3xl font-bold text-avax-success">156</div>
-                  <div className="text-erea-text-light font-semibold">Registered Users</div>
-                </div>
-                <div className="avax-card p-6 text-center">
-                  <div className="text-3xl font-bold text-avax-accent">98%</div>
-                  <div className="text-erea-text-light font-semibold">Success Rate</div>
-                </div>
-                <div className="avax-card p-6 text-center">
-                  <div className="text-3xl font-bold text-avax-warning">24</div>
-                  <div className="text-erea-text-light font-semibold">Active Properties</div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="avax-card p-6">
-                  <h3 className="avax-subheading text-lg mb-4">Recent Platform Activity</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center border-b border-avax-border pb-2">
-                      <span className="text-sm">New property registered</span>
-                      <span className="text-xs text-erea-text-light">2 hours ago</span>
-                    </div>
-                    <div className="flex justify-between items-center border-b border-avax-border pb-2">
-                      <span className="text-sm">Resident verification approved</span>
-                      <span className="text-xs text-erea-text-light">4 hours ago</span>
-                    </div>
-                    <div className="flex justify-between items-center border-b border-avax-border pb-2">
-                      <span className="text-sm">Auction completed successfully</span>
-                      <span className="text-xs text-erea-text-light">1 day ago</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="avax-card p-6">
-                  <h3 className="avax-subheading text-lg mb-4">System Status</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm">Avalanche Network</span>
-                      <span className="text-xs bg-avax-success text-white px-2 py-1 rounded-full">Healthy</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm">EERC Protocol</span>
-                      <span className="text-xs bg-avax-success text-white px-2 py-1 rounded-full">Online</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm">Database</span>
-                      <span className="text-xs bg-avax-success text-white px-2 py-1 rounded-full">Operational</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 

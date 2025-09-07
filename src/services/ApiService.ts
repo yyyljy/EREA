@@ -407,6 +407,72 @@ export class ApiService {
     }
   }
 
+  // EERC 토큰 민팅 (ZK proof 포함)
+  async mintEERCTokens(amount: number, userPublicKey: string[], auditorPublicKey: string[]): Promise<{
+    success: boolean;
+    txHash: string;
+    amount: number;
+    message: string;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/eerc/mint`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        amount,
+        userPublicKey,
+        auditorPublicKey
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `EERC mint failed: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  // EERC 토큰 전송 (ZK proof 포함)
+  async transferEERCTokens(
+    amount: number,
+    senderPublicKey: string[],
+    senderPrivateKey: string,
+    senderBalance: number,
+    senderEncryptedBalance: string[],
+    receiverPublicKey: string[],
+    auditorPublicKey: string[]
+  ): Promise<{
+    success: boolean;
+    txHash: string;
+    amount: number;
+    message: string;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/eerc/transfer`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        amount,
+        senderPublicKey,
+        senderPrivateKey,
+        senderBalance,
+        senderEncryptedBalance,
+        receiverPublicKey,
+        auditorPublicKey
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `EERC transfer failed: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
   // Deposit 관련 메서드들
 
   // 보증금 납부

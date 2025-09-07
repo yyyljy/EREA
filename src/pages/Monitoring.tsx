@@ -348,12 +348,12 @@ export function MonitoringDashboard() {
                           </td>
                           <td className="px-6 py-4 text-sm font-mono text-erea-text-light">
                             <a 
-                              href={`https://snowscan.xyz/tx/${tx.txHash}`}
+                              href={`https://testnet.avascan.info/blockchain/c/tx/${tx.txHash}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="hover:text-erea-primary transition-colors"
+                              className="hover:text-erea-primary transition-colors text-erea-primary underline"
                             >
-                              {tx.txHash.slice(0, 10)}...{tx.txHash.slice(-8)}
+                              {tx.txHash}
                             </a>
                           </td>
                         </tr>
